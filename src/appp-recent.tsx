@@ -6,10 +6,15 @@ const STORAGE_KEY = 'german-practice-data';
 // Question interface with all required fields
 interface Question {
   id: string;
-  type: 'fill-blank' | 'transform' | 'multi-blank' | 'identify' | 'writing' | 'speaking' | 'reading';
+  type: 'fill_blank' | 'multiple_choice' | 'transformation' | 'identification' | 'word_order' | 'error_correction' | 'free_writing' | 'reading_comprehension' | 'dialogue_completion';
   text: string;
-  answer: string | string[]; // Array for multiple answers, or sample answer for practice-only types
-  context?: string; // Optional context/hints
+  answer: string;
+  options?: string[]; // For multiple choice
+  task?: string; // Additional instructions
+  example?: string; // Example answer
+  readingText?: string; // For reading comprehension
+  readingQuestions?: string[]; // For reading comprehension
+  dialogue?: string; // For dialogue completion
   timesAnswered: number;
   timesCorrect: number;
   lastReviewed: string | null;
@@ -19,56 +24,15 @@ interface Question {
 interface Exercise {
   id: string;
   name: string;
-  description?: string; // Markdown-supported exercise description
-  instructions?: string; // Instructions shown before each question
+  description?: string;
+  example?: string;
   questions: Question[];
 }
 
-// Question type labels and descriptions
-const QUESTION_TYPE_INFO = {
-  'fill-blank': {
-    label: 'Fill in Blank',
-    icon: '📝',
-    description: 'Complete the sentence with the correct word',
-    autoGrade: true
-  },
-  'transform': {
-    label: 'Transform',
-    icon: '🔄',
-    description: 'Transform the word/phrase according to instructions',
-    autoGrade: true
-  },
-  'multi-blank': {
-    label: 'Multiple Blanks',
-    icon: '🔢',
-    description: 'Fill in multiple blanks in the sentence',
-    autoGrade: true
-  },
-  'identify': {
-    label: 'Identify',
-    icon: '🏷️',
-    description: 'Label parts of the sentence',
-    autoGrade: true
-  },
-  'writing': {
-    label: 'Writing Practice',
-    icon: '✍️',
-    description: 'Write a response - compare with sample answer',
-    autoGrade: false
-  },
-  'speaking': {
-    label: 'Speaking Practice',
-    icon: '🗣️',
-    description: 'Oral response - check sample answer',
-    autoGrade: false
-  },
-  'reading': {
-    label: 'Reading Comprehension',
-    icon: '📖',
-    description: 'Read the text and answer questions',
-    autoGrade: true
-  }
-};
+interface Feedback {
+  correct: boolean;
+  correctAnswer: string;
+}
 
 // Mastery levels based on correct percentage AND minimum attempts
 const getMasteryLevel = (timesAnswered: number, timesCorrect: number): 'new' | 'weak' | 'middle' | 'mastered' => {
@@ -146,21 +110,22 @@ const getMasteryLabel = (level: string) => {
 function App() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
-  const [view, setView] = useState<'list' | 'add' | 'practice' | 'sessionComplete'>('list');
+  const [view, setView] = useState('list'); // list, add, practice
   const [newExerciseName, setNewExerciseName] = useState('');
   const [newExerciseDescription, setNewExerciseDescription] = useState('');
   const [singleQuestion, setSingleQuestion] = useState({ text: '', answer: '' });
   const [bulkText, setBulkText] = useState('');
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
-  const [feedback, setFeedback] = useState<{ correct: boolean; correctAnswer: string | string[] } | null>(null);
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
-  const [editingDescription, setEditingDescription] = useState('');
-  const [sessionPool, setSessionPool] = useState<Question[]>([]);
-  const [sessionSize, setSessionSize] = useState(10);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [sessionStats, setSessionStats] = useState({ correct: 0, total: 0 });
+  // const [editingDescription, setEditingDescription] = useState(''); // For future exercise description editing
+  // const [sessionQuestions, setSessionQuestions] = useState<string[]>([]); // Track questions shown in current session
+  const [sessionStats, setSessionStats] = useState({ correct: 0, total: 0 }); // Session statistics
+  const [sessionPool, setSessionPool] = useState<Question[]>([]); // Pre-selected questions for the session
+  const [sessionSize, setSessionSize] = useState(10); // Number of questions per session
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // Track position in session
 
   // Load data from localStorage
   useEffect(() => {
@@ -212,7 +177,6 @@ function App() {
   const startEditExercise = (exercise: Exercise) => {
     setEditingExerciseId(exercise.id);
     setEditingName(exercise.name);
-    setEditingDescription(exercise.description || '');
   };
 
   const saveExerciseName = () => {
@@ -220,118 +184,11 @@ function App() {
     
     setExercises(exercises.map(e => 
       e.id === editingExerciseId 
-        ? { ...e, name: editingName.trim(), description: editingDescription.trim() || undefined }
+        ? { ...e, name: editingName.trim() }
         : e
     ));
     setEditingExerciseId(null);
     setEditingName('');
-    setEditingDescription('');
-  };
-
-  // Parse question and answer based on type
-  const parseQuestion = (line: string): Omit<Question, 'id' | 'timesAnswered' | 'timesCorrect' | 'lastReviewed' | 'createdAt'> | null => {
-    line = line.trim();
-    if (!line) return null;
-
-    // Writing practice type (using [WRITING])
-    if (line.toLowerCase().includes('[writing]')) {
-      const cleanLine = line.replace(/\[writing\]/gi, '').trim();
-      const parts = cleanLine.split('|').map(p => p.trim());
-      if (parts.length === 2) {
-        return {
-          type: 'writing',
-          text: parts[0],
-          answer: parts[1] // Sample answer
-        };
-      }
-    }
-
-    // Speaking practice type (using [SPEAKING])
-    if (line.toLowerCase().includes('[speaking]')) {
-      const cleanLine = line.replace(/\[speaking\]/gi, '').trim();
-      const parts = cleanLine.split('|').map(p => p.trim());
-      if (parts.length === 2) {
-        return {
-          type: 'speaking',
-          text: parts[0],
-          answer: parts[1] // Sample answer
-        };
-      }
-    }
-
-    // Reading comprehension type (using [READING])
-    if (line.toLowerCase().includes('[reading]')) {
-      const cleanLine = line.replace(/\[reading\]/gi, '').trim();
-      const parts = cleanLine.split('|').map(p => p.trim());
-      if (parts.length >= 2) {
-        // Support multiple possible answers
-        const text = parts[0];
-        const answers = parts.slice(1).join('||');
-        if (answers.includes('||')) {
-          return {
-            type: 'reading',
-            text,
-            answer: answers.split('||').map(a => a.trim())
-          };
-        }
-        return {
-          type: 'reading',
-          text,
-          answer: parts[1]
-        };
-      }
-    }
-
-    // Transform type (using >>)
-    if (line.includes('>>')) {
-      const parts = line.split('>>').map(p => p.trim());
-      if (parts.length === 2) {
-        return {
-          type: 'transform',
-          text: parts[0],
-          answer: parts[1]
-        };
-      }
-    }
-
-    // Multi-blank type (using ||)
-    if (line.includes('||')) {
-      const [text, answers] = line.split('||').map(p => p.trim());
-      if (text && answers) {
-        return {
-          type: 'multi-blank',
-          text,
-          answer: answers.split('|').map(a => a.trim())
-        };
-      }
-    }
-
-    // Identify type (using [IDENTIFY])
-    if (line.toLowerCase().includes('[identify]')) {
-      const cleanLine = line.replace(/\[identify\]/gi, '').trim();
-      const parts = cleanLine.split('||').map(p => p.trim());
-      if (parts.length === 2) {
-        return {
-          type: 'identify',
-          text: parts[0],
-          answer: parts[1].split('|').map(a => a.trim())
-        };
-      }
-    }
-
-    // Default fill-blank type (using |)
-    if (line.includes('|')) {
-      const parts = line.split('|').map(p => p.trim());
-      if (parts.length === 2) {
-        return {
-          type: 'fill-blank',
-          text: parts[0],
-          answer: parts[1]
-        };
-      }
-    }
-
-    return null;
   };
 
   const addSingleQuestion = () => {
@@ -342,7 +199,7 @@ function App() {
 
     const newQuestion: Question = {
       id: Date.now().toString(),
-      type: 'fill-blank',
+      type: 'fill_blank',
       text: singleQuestion.text.trim(),
       answer: singleQuestion.answer.trim(),
       timesAnswered: 0,
@@ -360,28 +217,116 @@ function App() {
     setSingleQuestion({ text: '', answer: '' });
   };
 
+  const parseBulkQuestions = (text: string): Question[] => {
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+    const questions: Question[] = [];
+    let currentQuestion: Partial<Question> | null = null;
+
+    for (const line of lines) {
+      if (line.startsWith('TYPE:')) {
+        // Save previous question if exists
+        if (currentQuestion && currentQuestion.text && currentQuestion.answer) {
+          questions.push({
+            id: `${Date.now()}-${questions.length}`,
+            type: currentQuestion.type || 'fill_blank',
+            text: currentQuestion.text,
+            answer: currentQuestion.answer,
+            options: currentQuestion.options,
+            task: currentQuestion.task,
+            example: currentQuestion.example,
+            readingText: currentQuestion.readingText,
+            readingQuestions: currentQuestion.readingQuestions,
+            dialogue: currentQuestion.dialogue,
+            timesAnswered: 0,
+            timesCorrect: 0,
+            lastReviewed: null,
+            createdAt: new Date().toISOString()
+          });
+        }
+
+        // Start new question
+        const type = line.replace('TYPE:', '').trim() as Question['type'];
+        currentQuestion = { type };
+      } else if (line.startsWith('QUESTION:')) {
+        if (currentQuestion) {
+          currentQuestion.text = line.replace('QUESTION:', '').trim();
+        }
+      } else if (line.startsWith('ANSWER:')) {
+        if (currentQuestion) {
+          currentQuestion.answer = line.replace('ANSWER:', '').trim();
+        }
+      } else if (line.startsWith('OPTIONS:')) {
+        if (currentQuestion) {
+          currentQuestion.options = line.replace('OPTIONS:', '').trim().split(',').map(opt => opt.trim());
+        }
+      } else if (line.startsWith('TASK:')) {
+        if (currentQuestion) {
+          currentQuestion.task = line.replace('TASK:', '').trim();
+        }
+      } else if (line.startsWith('EXAMPLE:')) {
+        if (currentQuestion) {
+          currentQuestion.example = line.replace('EXAMPLE:', '').trim();
+        }
+      } else if (line.startsWith('TEXT:')) {
+        if (currentQuestion) {
+          currentQuestion.readingText = line.replace('TEXT:', '').trim();
+        }
+      } else if (line.startsWith('QUESTIONS:')) {
+        if (currentQuestion) {
+          currentQuestion.readingQuestions = line.replace('QUESTIONS:', '').trim().split(';').map(q => q.trim());
+        }
+      } else if (line.startsWith('DIALOGUE:')) {
+        if (currentQuestion) {
+          currentQuestion.dialogue = line.replace('DIALOGUE:', '').trim();
+        }
+      } else if (line.includes('|') && !line.startsWith('#')) {
+        // Legacy format: Question | Answer
+        const parts = line.split('|').map(p => p.trim());
+        if (parts.length === 2 && parts[0] && parts[1]) {
+          questions.push({
+            id: `${Date.now()}-${questions.length}`,
+            type: 'fill_blank',
+            text: parts[0],
+            answer: parts[1],
+            timesAnswered: 0,
+            timesCorrect: 0,
+            lastReviewed: null,
+            createdAt: new Date().toISOString()
+          });
+        }
+      }
+    }
+
+    // Save last question
+    if (currentQuestion && currentQuestion.text && currentQuestion.answer) {
+      questions.push({
+        id: `${Date.now()}-${questions.length}`,
+        type: currentQuestion.type || 'fill_blank',
+        text: currentQuestion.text,
+        answer: currentQuestion.answer,
+        options: currentQuestion.options,
+        task: currentQuestion.task,
+        example: currentQuestion.example,
+        readingText: currentQuestion.readingText,
+        readingQuestions: currentQuestion.readingQuestions,
+        dialogue: currentQuestion.dialogue,
+        timesAnswered: 0,
+        timesCorrect: 0,
+        lastReviewed: null,
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    return questions;
+  };
+
   const addBulkQuestions = () => {
     if (!bulkText.trim()) return;
     
     const exercise = exercises.find(e => e.id === selectedExerciseId);
     if (!exercise) return;
 
-    const lines = bulkText.split('\n').filter(line => line.trim());
-    const newQuestions: Question[] = [];
-
-    lines.forEach((line, index) => {
-      const parsed = parseQuestion(line);
-      if (parsed) {
-        newQuestions.push({
-          id: `${Date.now()}-${index}-${Math.random()}`,
-          ...parsed,
-          timesAnswered: 0,
-          timesCorrect: 0,
-          lastReviewed: null,
-          createdAt: new Date().toISOString()
-        });
-      }
-    });
+    const newQuestions = parseBulkQuestions(bulkText);
 
     if (newQuestions.length > 0) {
       setExercises(exercises.map(e => 
@@ -486,58 +431,7 @@ function App() {
   const checkAnswer = () => {
     if (!userAnswer.trim() || !currentQuestion) return;
 
-    let correct = false;
-    const questionAnswer = currentQuestion.answer;
-
-    // For practice-only types (writing/speaking), show sample answer but don't auto-grade
-    if (currentQuestion.type === 'writing' || currentQuestion.type === 'speaking') {
-      // Just show the sample answer, user will self-assess
-      setFeedback({ correct: false, correctAnswer: questionAnswer });
-      // Update session stats to count as attempted (correct will be set by user's self-assessment)
-      setSessionStats(prev => ({
-        correct: prev.correct,
-        total: prev.total + 1
-      }));
-      
-      // Update question stats
-      setExercises(exercises.map(e => 
-        e.id === selectedExerciseId
-          ? {
-              ...e,
-              questions: e.questions.map(q => 
-                q.id === currentQuestion.id
-                  ? {
-                      ...q,
-                      timesAnswered: q.timesAnswered + 1,
-                      lastReviewed: new Date().toISOString()
-                    }
-                  : q
-              )
-            }
-          : e
-      ));
-
-      const updatedQuestion = {
-        ...currentQuestion,
-        timesAnswered: currentQuestion.timesAnswered + 1,
-        lastReviewed: new Date().toISOString()
-      };
-      setCurrentQuestion(updatedQuestion);
-      return;
-    }
-
-    // Auto-grade for other question types
-    // Check answer based on question type
-    if (Array.isArray(questionAnswer)) {
-      // For multi-blank, identify, or reading questions with multiple answers
-      const userAnswersList = userAnswer.split(',').map(a => a.trim().toLowerCase());
-      const correctAnswers = questionAnswer.map(a => a.toLowerCase());
-      correct = userAnswersList.length === correctAnswers.length && 
-                userAnswersList.every((ans, idx) => ans === correctAnswers[idx]);
-    } else {
-      // For fill-blank, transform, or reading questions with single answer
-      correct = userAnswer.trim().toLowerCase() === questionAnswer.toLowerCase();
-    }
+    const correct = userAnswer.trim().toLowerCase() === currentQuestion.answer.toLowerCase();
     
     // Update session stats
     setSessionStats(prev => ({
@@ -573,7 +467,7 @@ function App() {
     };
     setCurrentQuestion(updatedQuestion);
 
-    setFeedback({ correct, correctAnswer: questionAnswer });
+    setFeedback({ correct, correctAnswer: currentQuestion.answer });
   };
 
   const nextQuestion = () => {
@@ -689,6 +583,234 @@ function App() {
     return { level, percentage, nextMilestone, reviewStatus, daysSince, isDue };
   };
 
+  const QuestionRenderer = ({ question, userAnswer, setUserAnswer, disabled }: {
+    question: Question;
+    userAnswer: string;
+    setUserAnswer: (answer: string) => void;
+    disabled: boolean;
+  }) => {
+    const handleKeyPress = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !disabled) {
+        // We'll handle this in the parent
+      }
+    };
+
+    switch (question.type) {
+      case 'multiple_choice':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">
+              {question.text}
+            </h3>
+            {question.task && (
+              <p className="text-lg text-gray-600 mb-4">{question.task}</p>
+            )}
+            <div className="space-y-2">
+              {question.options?.map((option, index) => (
+                <button
+                  key={index}
+                  onClick={() => !disabled && setUserAnswer(option)}
+                  disabled={disabled}
+                  className={`w-full p-4 text-left border-2 rounded-lg transition-all ${
+                    userAnswer === option
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                      : 'border-gray-300 hover:border-indigo-300'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 'transformation':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">
+              {question.text}
+            </h3>
+            {question.task && (
+              <p className="text-lg text-gray-600 mb-4">{question.task}</p>
+            )}
+            <input
+              type="text"
+              value={userAnswer}
+              onChange={(e) => setUserAnswer(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={disabled}
+              placeholder="Type your answer..."
+              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
+              autoFocus
+            />
+          </div>
+        );
+
+      case 'identification':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">
+              {question.text}
+            </h3>
+            {question.task && (
+              <p className="text-lg text-gray-600 mb-4 font-medium">{question.task}</p>
+            )}
+            <textarea
+              value={userAnswer}
+              onChange={(e) => setUserAnswer(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={disabled}
+              placeholder="Type your answer..."
+              rows={3}
+              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
+              autoFocus
+            />
+          </div>
+        );
+
+      case 'word_order':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">
+              Rearrange the words in correct German order:
+            </h3>
+            <p className="text-xl text-gray-700 mb-4 font-mono bg-gray-50 p-4 rounded-lg">
+              {question.text}
+            </p>
+            <input
+              type="text"
+              value={userAnswer}
+              onChange={(e) => setUserAnswer(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={disabled}
+              placeholder="Type the correct word order..."
+              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
+              autoFocus
+            />
+          </div>
+        );
+
+      case 'error_correction':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">
+              Find and correct the error:
+            </h3>
+            <p className="text-xl text-gray-700 mb-4 font-mono bg-gray-50 p-4 rounded-lg">
+              {question.text}
+            </p>
+            <input
+              type="text"
+              value={userAnswer}
+              onChange={(e) => setUserAnswer(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={disabled}
+              placeholder="Type the corrected version..."
+              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
+              autoFocus
+            />
+          </div>
+        );
+
+      case 'reading_comprehension':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">
+              Read the text and answer:
+            </h3>
+            {question.readingText && (
+              <div className="bg-gray-50 p-6 rounded-lg mb-6">
+                <p className="text-gray-700 leading-relaxed">{question.readingText}</p>
+              </div>
+            )}
+            <p className="text-xl text-gray-800 mb-4">{question.text}</p>
+            <textarea
+              value={userAnswer}
+              onChange={(e) => setUserAnswer(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={disabled}
+              placeholder="Type your answer..."
+              rows={3}
+              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
+              autoFocus
+            />
+          </div>
+        );
+
+      case 'dialogue_completion':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">
+              Complete the dialogue:
+            </h3>
+            {question.dialogue && (
+              <div className="bg-gray-50 p-6 rounded-lg mb-6 font-mono">
+                <pre className="text-gray-700 whitespace-pre-wrap">{question.dialogue}</pre>
+              </div>
+            )}
+            <p className="text-xl text-gray-800 mb-4">{question.text}</p>
+            <input
+              type="text"
+              value={userAnswer}
+              onChange={(e) => setUserAnswer(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={disabled}
+              placeholder="Type your answer..."
+              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
+              autoFocus
+            />
+          </div>
+        );
+
+      case 'free_writing':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">
+              {question.text}
+            </h3>
+            {question.task && (
+              <p className="text-lg text-gray-600 mb-4">{question.task}</p>
+            )}
+            {question.example && (
+              <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                <p className="text-sm text-blue-700 font-medium mb-2">Example:</p>
+                <p className="text-blue-800">{question.example}</p>
+              </div>
+            )}
+            <textarea
+              value={userAnswer}
+              onChange={(e) => setUserAnswer(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={disabled}
+              placeholder="Write your answer..."
+              rows={6}
+              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
+              autoFocus
+            />
+          </div>
+        );
+
+      default: // fill_blank
+        return (
+          <div className="space-y-4">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">
+              {question.text}
+            </h3>
+            <input
+              type="text"
+              value={userAnswer}
+              onChange={(e) => setUserAnswer(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={disabled}
+              placeholder="Type your answer..."
+              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
+              autoFocus
+            />
+          </div>
+        );
+    }
+  };
+
   const selectedExercise = exercises.find(e => e.id === selectedExerciseId);
   const stats = selectedExercise ? getExerciseStats(selectedExercise) : null;
 
@@ -713,25 +835,25 @@ function App() {
               <div className="mb-4">
                 <input
                   type="text"
-                  placeholder="New exercise name (e.g., telc B1 Dative - Part 1)"
+                  placeholder="New exercise name"
                   value={newExerciseName}
                   onChange={(e) => setNewExerciseName(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && createExercise()}
+                  onKeyPress={(e) => e.key === 'Enter' && createExercise()}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2"
                 />
                 <textarea
-                  placeholder="Exercise description (optional - will be shown during practice)"
+                  placeholder="Exercise description (optional)"
                   value={newExerciseDescription}
                   onChange={(e) => setNewExerciseDescription(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2 resize-none"
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2"
                 />
                 <button
                   onClick={createExercise}
                   className="w-full bg-indigo-600 text-white px-3 py-2 rounded-md text-sm hover:bg-indigo-700 flex items-center justify-center"
                 >
                   <Plus className="w-4 h-4 mr-1" />
-                  Create Exercise
+                  Create
                 </button>
               </div>
 
@@ -751,34 +873,21 @@ function App() {
                       }`}
                     >
                       {isEditing ? (
-                        <div className="space-y-2">
+                        <div className="flex items-center gap-1">
                           <input
                             type="text"
                             value={editingName}
                             onChange={(e) => setEditingName(e.target.value)}
-                            placeholder="Exercise name"
-                            className="w-full px-2 py-1 border rounded text-sm"
+                            onKeyPress={(e) => e.key === 'Enter' && saveExerciseName()}
+                            className="flex-1 px-2 py-1 border rounded text-sm"
                             autoFocus
                           />
-                          <textarea
-                            value={editingDescription}
-                            onChange={(e) => setEditingDescription(e.target.value)}
-                            placeholder="Exercise description (optional)"
-                            rows={2}
-                            className="w-full px-2 py-1 border rounded text-sm resize-none"
-                          />
-                          <div className="flex gap-1">
-                            <button onClick={saveExerciseName} className="flex-1 bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700">
-                              Save
-                            </button>
-                            <button onClick={() => {
-                              setEditingExerciseId(null);
-                              setEditingName('');
-                              setEditingDescription('');
-                            }} className="px-2 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400">
-                              Cancel
-                            </button>
-                          </div>
+                          <button onClick={saveExerciseName} className="text-green-600 hover:text-green-700">
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => setEditingExerciseId(null)} className="text-red-600 hover:text-red-700">
+                            <X className="w-4 h-4" />
+                          </button>
                         </div>
                       ) : (
                         <>
@@ -807,6 +916,11 @@ function App() {
                               </button>
                             </div>
                           </div>
+                          {exercise.description && (
+                            <div className="text-xs text-gray-500 mb-1 line-clamp-2">
+                              {exercise.description}
+                            </div>
+                          )}
                           <div className="text-xs text-gray-600 mb-1">
                             {exerciseStats.total} questions
                           </div>
@@ -879,8 +993,8 @@ function App() {
                       </button>
                     </div>
                     
-                    {/* Session Size Selector - show in both add view and when ready to practice */}
-                    {(view === 'add' || (view !== 'practice' && view !== 'sessionComplete')) && (
+                    {/* Session Size Selector */}
+                    {selectedExercise && selectedExercise.questions.length > 0 && (
                       <div className="flex items-center gap-3 pt-2 border-t">
                         <label className="text-sm font-medium text-gray-700">
                           Session Size:
@@ -1005,20 +1119,43 @@ function App() {
                     {/* Bulk Add */}
                     <div className="bg-white rounded-lg shadow-lg p-6">
                       <h3 className="text-lg font-bold text-gray-800 mb-4">Bulk Add Questions</h3>
-                      <div className="mb-3 space-y-2 text-sm text-gray-600">
-                        <p className="font-semibold">Supported formats:</p>
-                        <div className="space-y-1 pl-4">
-                          <p>📝 <strong>Fill-in-blank:</strong> <code className="bg-gray-100 px-2 py-1 rounded">Question with ___ | answer</code></p>
-                          <p>🔄 <strong>Transform:</strong> <code className="bg-gray-100 px-2 py-1 rounded">der Freund &gt;&gt; den Freunden</code></p>
-                          <p>🔢 <strong>Multi-blank:</strong> <code className="bg-gray-100 px-2 py-1 rounded">I ___ (word1) ___ (word2) || answer1 | answer2</code></p>
-                          <p>🏷️ <strong>Identify:</strong> <code className="bg-gray-100 px-2 py-1 rounded">[IDENTIFY] Sentence || word1=DAT | word2=AKK</code></p>
-                        </div>
+                      <div className="text-sm text-gray-600 mb-3 space-y-2">
+                        <p><strong>Simple format:</strong> <code className="bg-gray-100 px-2 py-1 rounded">Question with ___ | answer</code></p>
+                        <p><strong>Advanced format:</strong> Use TYPE: for different question types</p>
+                        <details className="text-xs">
+                          <summary className="cursor-pointer font-medium">Supported question types</summary>
+                          <div className="mt-2 space-y-1">
+                            <p><code>TYPE: fill_blank</code> - Fill in the blanks</p>
+                            <p><code>TYPE: multiple_choice</code> - Multiple choice with OPTIONS:</p>
+                            <p><code>TYPE: transformation</code> - Word transformations</p>
+                            <p><code>TYPE: identification</code> - Identify parts with TASK:</p>
+                            <p><code>TYPE: word_order</code> - Rearrange word order</p>
+                            <p><code>TYPE: error_correction</code> - Find and correct errors</p>
+                          </div>
+                        </details>
                       </div>
                       <textarea
-                        placeholder={"Ich sehe ___ Hund. | den\nder Freund >> den Freunden\nIch kaufe ___ (mein Bruder) ___ (ein Geschenk) || meinem Bruder | ein Geschenk\n[IDENTIFY] Ich schenke meiner Freundin ein Buch || meiner Freundin=DAT | ein Buch=AKK"}
+                        placeholder={`# Simple format (fill in blanks)
+Ich sehe ___ Hund. | den
+___ Frau arbeitet im Büro. | die
+
+# Advanced format examples
+TYPE: multiple_choice
+QUESTION: Meine Schwester _____ mir oft im Haushalt.
+OPTIONS: hilft, dankt, gefällt, gehört
+ANSWER: hilft
+
+TYPE: transformation
+QUESTION: der Freund →
+ANSWER: den Freunden
+
+TYPE: identification
+QUESTION: Ich gebe dem Kind einen Apfel.
+TASK: Mark which object is dative (DAT) and which is accusative (AKK)
+ANSWER: dem Kind (DAT), einen Apfel (AKK)`}
                         value={bulkText}
                         onChange={(e) => setBulkText(e.target.value)}
-                        rows={8}
+                        rows={12}
                         className="w-full px-4 py-2 border border-gray-300 rounded-md font-mono text-sm"
                       />
                       <button
@@ -1042,17 +1179,12 @@ function App() {
                               <div key={q.id} className="flex items-start justify-between p-3 bg-gray-50 rounded-lg">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-lg">{QUESTION_TYPE_INFO[q.type].icon}</span>
-                                    <span className="text-xs px-2 py-1 rounded bg-gray-200 text-gray-700">
-                                      {QUESTION_TYPE_INFO[q.type].label}
+                                    <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 capitalize">
+                                      {q.type.replace('_', ' ')}
                                     </span>
                                   </div>
                                   <div className="font-medium text-gray-800">{q.text}</div>
-                                  <div className="text-sm text-gray-600">
-                                    Answer: <span className="font-semibold">
-                                      {Array.isArray(q.answer) ? q.answer.join(', ') : q.answer}
-                                    </span>
-                                  </div>
+                                  <div className="text-sm text-gray-600">Answer: <span className="font-semibold">{q.answer}</span></div>
                                   <div className="flex items-center gap-2 mt-2 flex-wrap">
                                     <span className={`text-xs px-2 py-1 rounded ${getMasteryColor(info.level)}`}>
                                       {getMasteryLabel(info.level)}
@@ -1102,259 +1234,100 @@ function App() {
                 {/* Practice View */}
                 {view === 'practice' && currentQuestion && (
                   <div className="bg-white rounded-lg shadow-lg p-8">
-                    {/* Exercise Description (if exists) */}
-                    {selectedExercise.description && (
-                      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h3 className="text-sm font-semibold text-blue-900 mb-2">📖 Exercise Information</h3>
-                        <div className="text-sm text-blue-800 whitespace-pre-wrap">
-                          {selectedExercise.description}
-                        </div>
+                    {/* Exercise Description */}
+                    {selectedExercise && (selectedExercise.description || selectedExercise.example) && (
+                      <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-400 rounded-r-lg">
+                        <h3 className="text-lg font-semibold text-blue-900 mb-2">
+                          {selectedExercise.name}
+                        </h3>
+                        {selectedExercise.description && (
+                          <p className="text-blue-800 mb-2">
+                            {selectedExercise.description}
+                          </p>
+                        )}
+                        {selectedExercise.example && (
+                          <div className="text-sm text-blue-700">
+                            <strong>Example:</strong> {selectedExercise.example}
+                          </div>
+                        )}
                       </div>
                     )}
 
-                    {/* Question Type Badge */}
-                    <div className="mb-4">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-indigo-100 text-indigo-700">
-                        <span className="mr-1">{QUESTION_TYPE_INFO[currentQuestion.type].icon}</span>
-                        {QUESTION_TYPE_INFO[currentQuestion.type].label}
-                      </span>
-                    </div>
-
                     {/* Session Progress */}
-                    <div className="mb-6 flex items-center justify-between">
-                      <div>
-                        <span className={`inline-block px-3 py-1 rounded text-sm ${getMasteryColor(
+                    <div className="mb-6 bg-gray-50 rounded-lg p-4 border">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Target className="w-5 h-5 text-indigo-600" />
+                          <span className="font-medium text-gray-900">Practice Session</span>
+                        </div>
+                        <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getMasteryColor(
                           getMasteryLevel(currentQuestion.timesAnswered, currentQuestion.timesCorrect)
                         )}`}>
                           {getMasteryLabel(getMasteryLevel(currentQuestion.timesAnswered, currentQuestion.timesCorrect))}
                         </span>
                       </div>
-                      <div className="text-right">
-                        <div className="text-sm text-gray-600">Session Progress</div>
-                        <div className="text-lg font-bold text-indigo-600">
-                          Question {currentQuestionIndex + 1}/{sessionPool.length}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm text-gray-600">Progress</div>
+                          <div className="text-xl font-bold text-indigo-600">
+                            {currentQuestionIndex + 1} of {sessionPool.length}
+                          </div>
                         </div>
-                        <div className="text-sm text-gray-600">
-                          Score: {sessionStats.correct}/{sessionStats.total}
-                          {sessionStats.total > 0 && (
-                            <span className="ml-1">
-                              ({Math.round((sessionStats.correct / sessionStats.total) * 100)}%)
-                            </span>
-                          )}
+                        <div className="text-right">
+                          <div className="text-sm text-gray-600">Score</div>
+                          <div className="text-xl font-bold text-green-600">
+                            {sessionStats.correct}/{sessionStats.total}
+                            {sessionStats.total > 0 && (
+                              <span className="text-sm text-gray-600 ml-1">
+                                ({Math.round((sessionStats.correct / sessionStats.total) * 100)}%)
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="mb-6">
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="mb-8">
+                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                         <div
-                          className="bg-indigo-600 h-2 rounded-full transition-all"
+                          className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-3 rounded-full transition-all duration-500 ease-out"
                           style={{ width: `${((currentQuestionIndex + 1) / sessionPool.length) * 100}%` }}
                         />
                       </div>
+                      <div className="text-center text-sm text-gray-600 mt-2">
+                        {Math.round(((currentQuestionIndex + 1) / sessionPool.length) * 100)}% Complete
+                      </div>
                     </div>
 
-                    {/* Question Content */}
                     <div className="mb-8">
-                      <h3 className="text-2xl font-bold text-gray-800 mb-6">
-                        {currentQuestion.text}
-                      </h3>
-
-                      {/* Different input types based on question type */}
-                      {currentQuestion.type === 'fill-blank' && (
-                        <input
-                          type="text"
-                          value={userAnswer}
-                          onChange={(e) => setUserAnswer(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
-                          disabled={feedback !== null}
-                          placeholder="Type your answer..."
-                          className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
-                          autoFocus
-                        />
-                      )}
-
-                      {currentQuestion.type === 'transform' && (
-                        <div>
-                          <div className="text-sm text-gray-600 mb-2">Transform the word/phrase:</div>
-                          <input
-                            type="text"
-                            value={userAnswer}
-                            onChange={(e) => setUserAnswer(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
-                            disabled={feedback !== null}
-                            placeholder="Type transformed answer..."
-                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
-                            autoFocus
-                          />
-                        </div>
-                      )}
-
-                      {(currentQuestion.type === 'multi-blank' || currentQuestion.type === 'identify') && (
-                        <div>
-                          <div className="text-sm text-gray-600 mb-2">
-                            {currentQuestion.type === 'multi-blank' 
-                              ? 'Enter answers separated by commas (,)' 
-                              : 'Label each part (e.g., word1=DAT, word2=AKK)'}
-                          </div>
-                          <input
-                            type="text"
-                            value={userAnswer}
-                            onChange={(e) => setUserAnswer(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
-                            disabled={feedback !== null}
-                            placeholder={currentQuestion.type === 'multi-blank' 
-                              ? "answer1, answer2, answer3..." 
-                              : "word=DAT, word=AKK..."}
-                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
-                            autoFocus
-                          />
-                        </div>
-                      )}
-
-                      {/* Writing Practice Type - Large text area for writing */}
-                      {currentQuestion.type === 'writing' && (
-                        <div>
-                          <div className="text-sm text-indigo-600 mb-2 font-medium">
-                            ✍️ Writing Practice - Write your response below (no auto-grading)
-                          </div>
-                          <textarea
-                            value={userAnswer}
-                            onChange={(e) => setUserAnswer(e.target.value)}
-                            disabled={feedback !== null}
-                            placeholder="Write your answer here... (2-3 complete sentences)"
-                            rows={6}
-                            className="w-full px-6 py-4 border-2 border-indigo-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 font-sans"
-                            autoFocus
-                          />
-                          <div className="mt-2 text-sm text-gray-600">
-                            Tip: Write complete sentences, then compare with the sample answer
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Speaking Practice Type */}
-                      {currentQuestion.type === 'speaking' && (
-                        <div>
-                          <div className="text-sm text-indigo-600 mb-2 font-medium">
-                            🗣️ Speaking Practice - Say your answer out loud, then type it below
-                          </div>
-                          <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-4">
-                            <p className="text-sm text-yellow-800">
-                              <strong>Instructions:</strong>
-                            </p>
-                            <ol className="list-decimal list-inside text-sm text-yellow-800 mt-1">
-                              <li>Read the question aloud</li>
-                              <li>Answer in complete German sentences</li>
-                              <li>Record yourself if possible (use phone/computer)</li>
-                              <li>Type what you said below</li>
-                              <li>Compare with the sample answer</li>
-                            </ol>
-                          </div>
-                          <textarea
-                            value={userAnswer}
-                            onChange={(e) => setUserAnswer(e.target.value)}
-                            disabled={feedback !== null}
-                            placeholder="Type what you said..."
-                            rows={4}
-                            className="w-full px-6 py-4 border-2 border-indigo-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 font-sans"
-                            autoFocus
-                          />
-                        </div>
-                      )}
-
-                      {/* Reading Comprehension Type */}
-                      {currentQuestion.type === 'reading' && (
-                        <div>
-                          <div className="text-sm text-gray-600 mb-2">
-                            📖 Answer based on the text above
-                          </div>
-                          <input
-                            type="text"
-                            value={userAnswer}
-                            onChange={(e) => setUserAnswer(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
-                            disabled={feedback !== null}
-                            placeholder="Type your answer..."
-                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
-                            autoFocus
-                          />
-                        </div>
-                      )}
+                      <QuestionRenderer
+                        question={currentQuestion}
+                        userAnswer={userAnswer}
+                        setUserAnswer={setUserAnswer}
+                        disabled={feedback !== null}
+                      />
                     </div>
 
-                    {/* Feedback */}
                     {feedback && (
                       <div className={`p-6 rounded-lg mb-6 ${
-                        feedback.correct ? 'bg-green-50 border-2 border-green-500' : 
-                        (currentQuestion.type === 'writing' || currentQuestion.type === 'speaking') 
-                          ? 'bg-blue-50 border-2 border-blue-500' 
-                          : 'bg-red-50 border-2 border-red-500'
+                        feedback.correct ? 'bg-green-50 border-2 border-green-500' : 'bg-red-50 border-2 border-red-500'
                       }`}>
                         <div className="flex items-center mb-2">
                           {feedback.correct ? (
                             <Check className="w-6 h-6 text-green-600 mr-2" />
-                          ) : (currentQuestion.type === 'writing' || currentQuestion.type === 'speaking') ? (
-                            <BookOpen className="w-6 h-6 text-blue-600 mr-2" />
                           ) : (
                             <X className="w-6 h-6 text-red-600 mr-2" />
                           )}
                           <span className={`text-xl font-bold ${
-                            feedback.correct ? 'text-green-700' : 
-                            (currentQuestion.type === 'writing' || currentQuestion.type === 'speaking')
-                              ? 'text-blue-700' 
-                              : 'text-red-700'
+                            feedback.correct ? 'text-green-700' : 'text-red-700'
                           }`}>
-                            {feedback.correct ? 'Correct!' : 
-                             (currentQuestion.type === 'writing' || currentQuestion.type === 'speaking')
-                               ? 'Sample Answer' 
-                               : 'Incorrect'}
+                            {feedback.correct ? 'Correct!' : 'Incorrect'}
                           </span>
                         </div>
-                        {(currentQuestion.type === 'writing' || currentQuestion.type === 'speaking') ? (
-                          <div>
-                            <p className="text-blue-800 font-medium mb-2">Compare your answer with this sample:</p>
-                            <p className="text-blue-900 bg-white p-4 rounded border border-blue-200 whitespace-pre-wrap">
-                              {Array.isArray(feedback.correctAnswer) 
-                                ? feedback.correctAnswer.join(', ') 
-                                : feedback.correctAnswer}
-                            </p>
-                            <div className="mt-4 pt-4 border-t border-blue-200">
-                              <p className="text-sm text-blue-700 font-medium mb-2">Was your answer similar?</p>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => {
-                                    // Mark as correct for self-assessment
-                                    setFeedback({ correct: true, correctAnswer: feedback.correctAnswer });
-                                    // Update stats to count as correct
-                                    setSessionStats(prev => ({
-                                      correct: prev.correct + 1,
-                                      total: prev.total
-                                    }));
-                                  }}
-                                  className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
-                                >
-                                  ✓ Yes, similar enough
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    // Keep as needs work
-                                  }}
-                                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-sm"
-                                >
-                                  ✗ Needs more practice
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ) : !feedback.correct && (
+                        {!feedback.correct && (
                           <p className="text-red-700">
-                            Correct answer: <span className="font-bold">
-                              {Array.isArray(feedback.correctAnswer) 
-                                ? feedback.correctAnswer.join(', ') 
-                                : feedback.correctAnswer}
-                            </span>
+                            Correct answer: <span className="font-bold">{feedback.correctAnswer}</span>
                           </p>
                         )}
                       </div>
@@ -1366,14 +1339,16 @@ function App() {
                           <button
                             onClick={checkAnswer}
                             disabled={!userAnswer.trim()}
-                            className="flex-1 bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                            className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-3 rounded-lg hover:from-indigo-700 hover:to-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-md transition-all"
                           >
+                            <Check className="w-4 h-4 inline mr-2" />
                             Check Answer
                           </button>
                           <button
                             onClick={endSession}
-                            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium shadow-md transition-all"
                           >
+                            <X className="w-4 h-4 inline mr-2" />
                             End Session
                           </button>
                         </>
@@ -1381,7 +1356,7 @@ function App() {
                         <>
                           <button
                             onClick={nextQuestion}
-                            className="flex-1 bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 font-medium"
+                            className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-lg hover:from-green-700 hover:to-green-800 font-medium shadow-md transition-all"
                           >
                             {currentQuestionIndex + 1 < sessionPool.length ? 'Next Question →' : 'Finish Session'}
                           </button>

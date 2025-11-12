@@ -1,0 +1,908 @@
+# telc B1 Dative Practice - Bul---
+
+### 📝 Part 5 Questions - NOW SUPPORTED! ✅
+
+**✅ NEW:** These can now be pasted into the bulk add feature! They will show in the app with a large text area for writing practice, then show a sample answer for comparison.
+
+**Format:** `[WRITING] Question text | Sample answer`
+
+```
+[WRITING] Situation 1: Schreiben Sie einer Freundin über Ihren Deutschkurs (2-3 Sätze). Verwenden Sie: gefallen, helfen, danken | Der Deutschkurs gefällt mir sehr gut. Die Lehrerin hilft uns immer bei den Hausaufgaben. Ich danke ihr für die tolle Unterstützung.
+[WRITING] Situation 2: Sie haben ein Problem mit Ihrer Wohnung. Schreiben Sie dem Vermieter (2-3 Sätze). Verwenden Sie: gehören, schaden, antworten | Die Heizung gehört zur Wohnung, aber sie funktioniert nicht. Das schadet meiner Gesundheit. Bitte antworten Sie mir bald.
+[WRITING] Situation 3: Sie laden einen Freund zu Ihrem Geburtstag ein (2-3 Sätze). Verwenden Sie: gratulieren, schenken, danken | Ich lade dich herzlich zu meinem Geburtstag ein. Du brauchst mir nichts zu schenken. Ich danke dir für deine Freundschaft.
+```
+
+**How it works in the app:**
+1. You'll see the writing prompt
+2. Write your answer in a large text area
+3. Click "Check Answer" to see the sample answer
+4. Self-assess: Mark as "similar enough" ✓ or "needs practice" ✗
+5. Your self-assessment counts toward your score
+
+---t
+*All exercises formatted for direct paste into German Practice Trainer*
+
+---
+
+---
+
+## 🎯 **PART 5: telc B1 Writing Practice**
+
+### Exercise Description
+**Grammar Focus:** Practical writing scenarios using dative verbs (gefallen, helfen, danken, gehören, schenken)
+
+**Exam Relevance:** This mirrors the telc B1 writing section where you must write 2-3 sentences in response to real-life situations. Focus on natural sentence construction using dative verbs.
+
+**Learning Objectives:**
+- Apply dative verbs in authentic writing contexts
+- Practice formal and informal writing styles
+- Use multiple dative constructions in connected text
+- Develop fluency with exam-relevant phrases
+
+**Study Tips:**
+- Write complete sentences with proper word order
+- Use connecting words (weil, aber, und, deshalb)
+- Include time expressions (immer, oft, gestern)
+- Practice both formal (Sie) and informal (du) registers
+
+**Common Mistakes to Avoid:**
+- Mixing formal/informal pronouns in same text
+- Forgetting dative after helfen, danken, gefallen
+- Using wrong case after prepositions (bei, mit, von)
+
+---
+
+### � Questions for Part 5 (Writing Practice)
+
+**NOTE:** These are open-ended writing questions. They are included for reference but cannot be auto-graded by the app. Use them for self-study or teacher review.
+
+```
+Situation 1: Sie schreiben einer Freundin über Ihren Deutschkurs. Schreiben Sie 2-3 Sätze mit: gefallen, helfen, danken | [WRITING PRACTICE - Manual review required]
+Situation 2: Sie haben ein Problem mit Ihrer Wohnung. Schreiben Sie dem Vermieter 2-3 Sätze mit: gehören, schaden, antworten | [WRITING PRACTICE - Manual review required]
+Situation 3: Sie laden einen Freund zu Ihrem Geburtstag ein. Schreiben Sie 2-3 Sätze mit: gratulieren, schenken, danken | [WRITING PRACTICE - Manual review required]
+```
+
+**Instructions for Teachers/Tutors:**
+These prompts should be used for writing practice outside the app. Students can write responses in a notebook or document for review.
+
+---
+
+## 🗣️ **PART 6: Error Correction**
+
+1. [Part 1: Basic Dative Articles](#part-1-basic-dative-articles)
+2. [Part 2: Plural Dative with -n Rule](#part-2-plural-dative-with--n-rule)
+3. [Part 3: Dative-Only Verbs](#part-3-dative-only-verbs)
+4. [Part 4: Mixing Accusative + Dative](#part-4-mixing-accusative--dative)
+5. [Part 5: telc B1 Writing Practice](#part-5-telc-b1-writing-practice)
+6. [Part 6: Error Correction](#part-6-error-correction)
+7. [Part 7: telc Speaking Practice](#part-7-telc-speaking-practice)
+8. [Part 8: Reading Comprehension](#part-8-reading-comprehension)
+9. [Part 9: Advanced Mix - Dialogue](#part-9-advanced-mix---dialogue)
+10. [Part 10: Final telc B1 Simulation](#part-10-final-telc-b1-simulation)
+
+---
+
+## 📊 **Statistics**
+- **Total Questions:** 100+ (88 auto-gradeable + 9 manual review)
+- **Part 1:** 10 questions (fill-blank) ✅ Auto-gradeable
+- **Part 2:** 13 questions (8 transform + 5 fill-blank) ✅ Auto-gradeable
+- **Part 3:** 10 questions (fill-blank) ✅ Auto-gradeable
+- **Part 4:** 25 questions (5 identify + 8 multi-blank + 12 transform) ✅ Auto-gradeable
+- **Part 5:** 3 writing prompts ⚠️ **DO NOT bulk paste - Manual review only**
+- **Part 6:** 8 questions (error correction) ✅ Auto-gradeable
+- **Part 7:** 5 speaking prompts ⚠️ **DO NOT bulk paste - Manual review only**
+- **Part 8:** 5 questions (reading comprehension) ✅ Auto-gradeable
+- **Part 9:** 9 questions (multi-blank dialogue) ✅ Auto-gradeable
+- **Part 10:** 1 email writing task ⚠️ **DO NOT bulk paste - Manual review only**
+
+**Auto-Gradeable Question Type Breakdown (88 questions):**
+- Fill-in-blank: 33 questions (38%)
+- Transform: 20 questions (23%)
+- Multi-blank: 22 questions (25%)
+- Identify: 5 questions (6%)
+- Reading comprehension: 5 questions (6%)
+- Error correction: 8 questions (9%)
+
+---
+
+## ⚠️ **IMPORTANT: How to Use This Document**
+
+### ✅ **ALL PARTS CAN NOW BE BULK PASTED!**
+
+The app now supports **3 new question types**:
+- **[WRITING]** - Writing practice with sample answer comparison
+- **[SPEAKING]** - Speaking practice with self-assessment
+- **[READING]** - Reading comprehension questions
+
+### **Auto-Gradeable Parts** (instant feedback):
+- **Part 1, 2, 3, 4, 6, 8, 9** - Fill-blank, transform, multi-blank, identify, error correction, reading
+
+### **Practice Parts** (with self-assessment):
+- **Part 5** - Writing practice (compare with sample, mark yourself)
+- **Part 7** - Speaking practice (speak, then compare with sample)
+- **Part 10** - Extended writing (write email, compare structure)
+
+**How Practice Questions Work:**
+1. Read the prompt and write/speak your answer
+2. Click "Check Answer" to see a sample answer
+3. Compare your answer with the sample
+4. Self-assess: Click "✓ Yes, similar enough" or "✗ Needs more practice"
+5. Your self-assessment counts toward statistics
+
+**All 100+ questions can be pasted!** 🎉
+
+---
+- Identify: 5 (7%)
+
+---
+
+## 📚 PART 2.1: Transform to Plural Dative
+
+### Exercise Description:
+```
+# Part 2.1: Transform to Plural Dative
+
+Transform singular nouns with articles to plural dative form.
+
+**The -n Rule:**
+- In dative plural, add **-n** to the noun (if it doesn't already end in -n or -s)
+- Article: Always **den**
+
+**Transformation Pattern:**
+- der Mann → den Männern
+- die Frau → den Frauen
+- das Kind → den Kindern
+
+**Exceptions:**
+- Nouns ending in -s: das Auto → den Autos (no -n added)
+- Nouns already ending in -n: der Garten → den Gärten (no extra -n)
+
+💡 **Tip:** Say it out loud - "den Kindern" sounds better than "den Kinder"
+```
+
+### Questions to Bulk Add:
+```
+das Kind >> den Kindern
+die Studentin >> den Studentinnen
+der Nachbar >> den Nachbarn
+das Auto >> den Autos
+die Kollegin >> den Kolleginnen
+der Tourist >> den Touristen
+das Restaurant >> den Restaurants
+die Ärztin >> den Ärztinnen
+```
+
+---
+
+## 📚 PART 2.2: Complete Sentences with Plural Dative
+
+### Exercise Description:
+```
+# Part 2.2: Complete Sentences with Plural Dative
+
+Fill in the blanks with the correct plural dative form of the noun in parentheses.
+
+**Steps:**
+1. Look at the noun in parentheses
+2. Make it plural
+3. Add **den** (dative article)
+4. Add **-n** to noun (if needed)
+
+**Example:**
+- Ich helfe ___ (die Kinder) → den Kindern
+- Das gehört ___ (meine Eltern) → meinen Eltern
+
+💡 **Tip:** Possessive articles also change: mein → meinen, dein → deinen
+```
+
+### Questions to Bulk Add:
+```
+Ich helfe ___ (die Kinder) bei den Hausaufgaben. | den Kindern
+Das Haus gehört ___ (meine Eltern). | meinen Eltern
+Sie dankt ___ (die Kollegen) für die Unterstützung. | den Kollegen
+Der Kurs gefällt ___ (die Studenten) sehr gut. | den Studenten
+Er antwortet ___ (die Nachbarn) höflich. | den Nachbarn
+```
+
+---
+
+## 📚 PART 3: Dative-Only Verbs
+
+### Exercise Description:
+```
+# Part 3: Dative-Only Verbs (telc Exam Relevant!)
+
+Choose and conjugate the correct dative verb from the list.
+
+**Dative Verbs List:**
+helfen (hilft), danken (dankt), gefallen (gefällt), gehören (gehört), passen (passt), antworten (antwortet), gratulieren (gratuliert), vertrauen (vertraut), folgen (folgt), glauben (glaubt)
+
+**Why these verbs?**
+These verbs describe relationships, reactions, or belonging - they need to show "to whom" or "for whom"
+
+**Conjugation Reminder:**
+- ich/er/sie/es: stem + t (or special form)
+- wir/sie/Sie: stem + en
+- du: stem + st
+
+**Common in telc B1:**
+- gratulieren (congratulate) + zu
+- helfen (help) + bei
+- danken (thank) + für
+- gefallen (appeal to) - subject and object reverse!
+
+💡 **Tip:** "Gefallen" is tricky - "Berlin gefällt MIR" = "I like Berlin" (lit: Berlin pleases to-me)
+```
+
+### Questions to Bulk Add:
+```
+Meine Schwester ___ mir oft im Haushalt. | hilft
+Wir ___ Ihnen herzlich für die Einladung. | danken
+Berlin ___ vielen Touristen wegen der Kultur. | gefällt
+Diese Tasche ___ meiner Mutter. | gehört
+Die Hose ___ mir nicht. Sie ist zu eng. | passt
+Ich ___ dir zum neuen Job! | gratuliere
+Der Student ___ dem Professor auf die Frage. | antwortet
+Ich ___ meinem besten Freund vollkommen. | vertraue
+Bitte ___ Sie mir zum Ausgang! | folgen
+Ich ___ dir, dass das die Wahrheit ist. | glaube
+```
+
+---
+
+## 📚 PART 4.1: Identify Dative and Accusative
+
+### Exercise Description:
+```
+# Part 4.1: Identify Dative and Accusative (CRITICAL FOR B1!)
+
+Label which object in the sentence is dative (DAT) and which is accusative (AKK).
+
+**The Rule:**
+When a sentence has TWO objects:
+- **Person** (to/for whom) = DATIVE
+- **Thing** (what) = ACCUSATIVE
+
+**Word Order:**
+- Person before thing: Ich gebe **dem Kind** (DAT) **ein Buch** (AKK)
+- Or with pronouns: Ich gebe **es** (AKK) **ihm** (DAT)
+
+**How to Identify:**
+- Ask "to whom?" → Dative
+- Ask "what?" → Accusative
+
+**Example:**
+Ich schenke **meiner Freundin** (DAT) **ein Buch** (AKK)
+- To whom do I give? → meiner Freundin (dative)
+- What do I give? → ein Buch (accusative)
+
+💡 **Exam Tip:** This is heavily tested in telc B1 writing and grammar sections!
+```
+
+### Questions to Bulk Add:
+```
+[IDENTIFY] Ich schenke meiner Freundin ein Buch || meiner Freundin=DAT | ein Buch=AKK
+[IDENTIFY] Er zeigt den Touristen die Sehenswürdigkeiten || den Touristen=DAT | die Sehenswürdigkeiten=AKK
+[IDENTIFY] Sie erklärt dem Schüler die Grammatik || dem Schüler=DAT | die Grammatik=AKK
+[IDENTIFY] Wir bringen unseren Nachbarn einen Kuchen || unseren Nachbarn=DAT | einen Kuchen=AKK
+[IDENTIFY] Ich empfehle dir dieses Restaurant || dir=DAT | dieses Restaurant=AKK
+```
+
+---
+
+## 📚 PART 4.2: Complete with Both Objects (Dative + Accusative)
+
+### Exercise Description:
+```
+# Part 4.2: Complete with Both Objects
+
+Fill in BOTH blanks with the words in parentheses in the correct case.
+
+**The Challenge:**
+You must change BOTH words to the correct case:
+1. First blank → usually DATIVE (person)
+2. Second blank → usually ACCUSATIVE (thing)
+
+**Case Endings Reminder:**
+
+**Dative (to/for whom):**
+- dem/einem (masculine/neuter)
+- der/einer (feminine)
+- den/meinen (plural)
+
+**Accusative (what):**
+- den/einen (masculine)
+- das/ein (neuter)
+- die/eine (feminine)
+- die/keine (plural)
+
+**Answer Format:** Separate answers with comma
+- Example: meinem Bruder, ein Geschenk
+
+💡 **Tip:** First decide WHO receives (dative), then WHAT they receive (accusative)
+```
+
+### Questions to Bulk Add:
+```
+Ich kaufe ___ (mein Bruder) ___ (ein Geschenk) || meinem Bruder | ein Geschenk
+Sie leiht ___ (ihre Kollegin) ___ (das Auto) || ihrer Kollegin | das Auto
+Er schickt ___ (seine Eltern) ___ (eine Postkarte) || seinen Eltern | eine Postkarte
+Wir zeigen ___ (die Gäste) ___ (die Wohnung) || den Gästen | die Wohnung
+Kannst du ___ (ich) ___ (dein Handy) geben? || mir | dein Handy
+Der Lehrer erklärt ___ (die Schüler) ___ (die Aufgabe) || den Schülern | die Aufgabe
+Ich bringe ___ (du) ___ (eine Tasse Kaffee) || dir | eine Tasse Kaffee
+Sie schreibt ___ (ihr Freund) ___ (einen Brief) || ihrem Freund | einen Brief
+```
+
+---
+
+## 📚 PART 4.3: Word Order Practice (EXAM IMPORTANT!)
+
+### Exercise Description:
+```
+# Part 4.3: Word Order Practice
+
+Rewrite the jumbled words in correct German sentence order.
+
+**German Word Order Rules (with 2 objects):**
+
+**Basic Pattern:**
+Subject + Verb + TIME + DATIVE + ACCUSATIVE + PLACE
+
+**Examples:**
+- Ich gebe morgen dem Lehrer das Buch
+- Er zeigt heute mir seine Wohnung
+
+**Alternative (Pronoun Rule):**
+When accusative is a pronoun, it comes BEFORE dative:
+- Ich gebe es ihm (not: ihm es)
+- Er zeigt sie mir (not: mir sie)
+
+**Time Before Place:**
+- heute in Berlin ✓
+- in Berlin heute ✗
+
+💡 **Exam Strategy:** In telc B1, word order mistakes = points lost. Practice this!
+```
+
+### Questions to Bulk Add:
+```
+Word order: (ich / gebe / dem Lehrer / das Buch / morgen) | Ich gebe dem Lehrer morgen das Buch
+Word order: (er / zeigt / mir / seine neue Wohnung / heute) | Er zeigt mir heute seine neue Wohnung
+Word order: (wir / schenken / den Kindern / Spielzeug / zu Weihnachten) | Wir schenken den Kindern zu Weihnachten Spielzeug
+Word order: (sie / erklärt / ihrem Chef / das Problem / in der Besprechung) | Sie erklärt ihrem Chef in der Besprechung das Problem
+```
+
+---
+
+## ✍️ **PART 5: telc B1 Writing Practice**
+
+### Exercise Description
+**Grammar Focus:** Practical writing scenarios using dative verbs (gefallen, helfen, danken, gehören, schenken)
+
+**Exam Relevance:** This mirrors the telc B1 writing section where you must write 2-3 sentences in response to real-life situations. Focus on natural sentence construction using dative verbs.
+
+**Learning Objectives:**
+- Apply dative verbs in authentic writing contexts
+- Practice formal and informal writing styles
+- Use multiple dative constructions in connected text
+- Develop fluency with exam-relevant phrases
+
+**Study Tips:**
+- Write complete sentences with proper word order
+- Use connecting words (weil, aber, und, deshalb)
+- Include time expressions (immer, oft, gestern)
+- Practice both formal (Sie) and informal (du) registers
+
+**Common Mistakes to Avoid:**
+- Mixing formal/informal pronouns in same text
+- Forgetting dative after helfen, danken, gefallen
+- Using wrong case after prepositions (bei, mit, von)
+
+---
+
+# telc B1 Dative Practice - Bulk Import Document
+*All exercises formatted for direct paste into German Practice Trainer*
+
+---
+
+## 📋 **Table of Contents**
+
+1. [Part 1: Basic Dative Articles](#part-1-basic-dative-articles)
+2. [Part 2: Plural Dative with -n Rule](#part-2-plural-dative-with--n-rule)
+3. [Part 3: Dative-Only Verbs](#part-3-dative-only-verbs)
+4. [Part 4: Mixing Accusative + Dative](#part-4-mixing-accusative--dative)
+5. [Part 5: telc B1 Writing Practice](#part-5-telc-b1-writing-practice)
+6. [Part 6: Error Correction](#part-6-error-correction)
+7. [Part 7: telc Speaking Practice](#part-7-telc-speaking-practice)
+8. [Part 8: Reading Comprehension](#part-8-reading-comprehension)
+9. [Part 9: Advanced Mix - Dialogue](#part-9-advanced-mix---dialogue)
+10. [Part 10: Final telc B1 Simulation](#part-10-final-telc-b1-simulation)
+
+---
+
+## 📊 **Statistics**
+- **Total Questions:** 100+ (88 auto-gradeable)
+- **Part 1:** 10 questions (fill-blank)
+- **Part 2:** 13 questions (8 transform + 5 fill-blank)
+- **Part 3:** 10 questions (fill-blank)
+- **Part 4:** 25 questions (5 identify + 8 multi-blank + 12 transform)
+- **Part 5:** 3 writing prompts (open-ended, manual review)
+- **Part 6:** 8 questions (error correction as fill-blank)
+- **Part 7:** 5 speaking prompts (open-ended, manual review)
+- **Part 8:** 5 questions (reading comprehension with multi-answer)
+- **Part 9:** 9 questions (multi-blank dialogue)
+- **Part 10:** 1 email writing task (open-ended, manual review)
+
+**Auto-Gradeable Question Type Breakdown (88 questions):**
+- Fill-in-blank: 33 questions (38%)
+- Transform: 20 questions (23%)
+- Multi-blank: 22 questions (25%)
+- Identify: 5 questions (6%)
+- Reading comprehension: 5 questions (6%)
+- Error correction: 8 questions (9%)
+
+**Note:** Parts 5, 7, and 10 contain open-ended writing/speaking tasks for manual review. All other parts are fully auto-gradeable.
+
+---
+
+**Instructions for Practice:**
+These prompts should be used for writing practice outside the app. Students can:
+- Write responses in a notebook
+- Share with a study partner for peer review
+- Submit to a teacher/tutor for feedback
+- Practice typing in German on computer/phone
+
+---
+
+## 📚 PART 6: Error Correction (telc Exam Style)
+
+### Exercise Description:
+```
+# Part 6: Error Correction
+
+Each sentence has ONE dative error. Write the complete CORRECT sentence.
+
+**Common Dative Errors:**
+1. Wrong article (der instead of dem)
+2. Missing plural -n (den Kinder → den Kindern)
+3. Using accusative instead of dative
+4. Wrong gender article
+
+**How to Find the Error:**
+1. Find the dative verb (helfen, danken, gefallen, etc.)
+2. Find its object (to whom?)
+3. Check: correct article? correct plural form?
+
+**Example:**
+❌ Ich helfe der Mann → ❗ Wrong article (der = nominative)
+✅ Ich helfe dem Mann → ✓ Correct (dem = dative)
+
+💡 **Exam Tip:** In telc B1, error correction appears in Teil 3 (Grammar). Always rewrite the COMPLETE sentence!
+```
+
+### Questions to Bulk Add:
+```
+Correct: Ich helfe der Mann im Garten | Ich helfe dem Mann im Garten
+Correct: Das Buch gehört den Kind | Das Buch gehört dem Kind
+Correct: Sie dankt die Kollegin für die Hilfe | Sie dankt der Kollegin für die Hilfe
+Correct: Die Schuhe passen dem Kinder nicht | Die Schuhe passen den Kindern nicht
+Correct: Wir gratulieren den Lehrer zum Jubiläum | Wir gratulieren dem Lehrer zum Jubiläum
+Correct: Er antwortet der Freunde auf die Frage | Er antwortet den Freunden auf die Frage
+Correct: Ich gebe dem Nachbarin die Blumen | Ich gebe der Nachbarin die Blumen
+Correct: Die Stadt gefällt den Tourist sehr gut | Die Stadt gefällt dem Touristen sehr gut
+```
+
+---
+
+## �️ **PART 7: telc Speaking Practice**
+
+### Exercise Description
+**Grammar Focus:** Speaking practice with dative verbs in question-answer format (typical for telc oral exam)
+
+**Exam Relevance:** The telc B1 speaking section requires you to answer personal questions using correct grammar. These questions practice natural responses with dative case.
+
+**Learning Objectives:**
+- Form complete spoken sentences with dative verbs
+- Answer personal questions authentically
+- Use appropriate intonation and sentence stress
+- Build confidence with common speaking topics
+
+**Study Tips:**
+- Record yourself speaking the answers
+- Practice with a partner or tutor
+- Focus on natural pronunciation
+- Use these as warm-up exercises before speaking practice
+
+**Common Mistakes to Avoid:**
+- One-word answers (always use complete sentences!)
+- Forgetting dative after verbs like helfen, danken
+- Incorrect word order with time expressions
+- Using accusative instead of dative
+
+---
+
+### 📝 Part 7 Questions - NOW SUPPORTED! ✅
+
+**✅ NEW:** These can now be pasted into the bulk add feature! They will show with instructions for speaking practice, then show a sample answer for comparison.
+
+**Format:** `[SPEAKING] Question text | Sample answer`
+
+```
+[SPEAKING] Wem helfen Sie oft? (Antworten Sie in vollständigen Sätzen) | Ich helfe oft meiner Mutter im Haushalt. Ich helfe auch meinen Kollegen bei der Arbeit.
+[SPEAKING] Was gefällt Ihnen an Berlin? (oder Ihrer Stadt) | Mir gefällt die Kultur in Berlin. Die vielen Museen gefallen mir besonders gut.
+[SPEAKING] Wem gehört Ihr Lieblingsrestaurant? | Mein Lieblingsrestaurant gehört einer italienischen Familie. Es gehört schon seit 20 Jahren ihnen.
+[SPEAKING] Wem danken Sie für Ihre Deutschkenntnisse? | Ich danke meiner Deutschlehrerin für meine Kenntnisse. Ich danke auch meinen deutschen Freunden.
+[SPEAKING] Was schenken Sie Ihren Freunden zum Geburtstag? | Ich schenke meinen Freunden oft Bücher. Manchmal schenke ich ihnen auch selbstgemachten Kuchen.
+```
+
+**How it works in the app:**
+1. You'll see instructions to speak out loud
+2. Record yourself answering (optional but recommended)
+3. Type what you said in the text area
+4. Click "Check Answer" to see the sample answer
+5. Self-assess your pronunciation and grammar
+6. Mark as "similar enough" ✓ or "needs practice" ✗
+
+---
+
+## 📖 **PART 8: Reading Comprehension**
+
+### Exercise Description
+**Grammar Focus:** Reading comprehension with dative verb identification in authentic text
+
+**Exam Relevance:** The telc B1 reading section includes informal letters and emails. This exercise practices identifying dative constructions in context.
+
+**Learning Objectives:**
+- Recognize dative verbs in connected text
+- Extract specific information from informal writing
+- Understand context clues for dative case
+- Practice reading comprehension strategies
+
+**Study Tips:**
+- Read the text twice: once for general meaning, once for details
+- Underline all dative verbs and their objects
+- Look for signal words (meiner, dem, den, mir)
+- Practice reading similar texts from textbooks
+
+**Grammar Rules in Context:**
+- "gefällt mir" = I like (literally: pleases to me)
+- "helfen + DAT" = to help someone
+- "gehören + DAT" = to belong to someone
+- "danken + DAT" = to thank someone
+
+---
+
+### 📝 Questions for Part 8 (Reading Comprehension)
+
+**Text to read (include this when creating the exercise):**
+"Hallo Lisa! Wie geht es dir? Mir gefällt es sehr gut in Berlin. Die Stadt ist fantastisch! Letzte Woche habe ich meiner Mitbewohnerin bei ihrem Umzug geholfen. Ich habe ihr auch mein Fahrrad geliehen, weil ihr Fahrrad kaputt ist. Sie hat mir für die Hilfe sehr gedankt. Mein Deutschlehrer erklärt uns die Grammatik immer sehr gut. Der Kurs gehört einer privaten Sprachschule in Mitte. Viele Grüße, Maria"
+
+**NOTE:** These questions require reading the text above. Include the text in your exercise description.
+
+```
+Was gefällt Maria in Berlin? | Die Stadt||Berlin
+Wem hat Maria geholfen? | Ihrer Mitbewohnerin
+Was hat Maria ihrer Mitbewohnerin geliehen? | Ihr Fahrrad||Ihr Rad||Das Fahrrad
+Wem gehört der Deutschkurs? | Einer privaten Sprachschule in Mitte||Einer Sprachschule
+Wie erklärt der Lehrer die Grammatik? | Sehr gut
+```
+
+**Instructions for Use:**
+When adding these questions, paste the text above into the Exercise Description field so students can read it during practice.
+
+---
+
+## �📚 PART 9: Advanced Mix - Dialogue Completion (telc oral exam style)
+
+### Exercise Description:
+```
+# Part 9: Advanced Mix - Dialogue Completion
+
+Complete the dialogue with correct articles and cases. This simulates real-life conversations tested in telc B1 oral exam.
+
+**Scenario:** Im Geschäft (At the store)
+**Focus:** Polite forms, dative + accusative mix, real-world vocabulary
+
+**Polite Forms (Sie):**
+- Nominative: Sie
+- Accusative: Sie
+- Dative: Ihnen ⭐
+
+**Context Verbs:**
+- helfen + DAT (Kann ich Ihnen helfen?)
+- suchen + AKK (Ich suche ein Geschenk)
+- empfehlen + DAT + AKK (Ich empfehle Ihnen diese Tasche)
+- gefallen + DAT (Es gefällt vielen Kunden)
+- geben + DAT + AKK (Können Sie mir ... geben?)
+- zeigen + DAT + AKK (Ich zeige Ihnen...)
+
+💡 **Real Exam Simulation:** Practice saying these out loud with proper pronunciation!
+```
+
+### Questions to Bulk Add:
+```
+Kann ich ___ (Sie, DAT) helfen? | Ihnen
+Ja, ich suche ___ (ein Geschenk, AKK) für ___ (meine Mutter, DAT) || ein Geschenk | meine Mutter
+Ich kann ___ (Sie, DAT) ___ (diese Tasche, AKK) empfehlen || Ihnen | diese Tasche
+Sie gefällt ___ (viele Kundinnen, DAT) | vielen Kundinnen
+Können Sie ___ (ich, DAT) auch ___ (eine Geschenkverpackung, AKK) geben? || mir | eine Geschenkverpackung
+Ich zeige ___ (Sie, DAT) auch noch ___ (andere Produkte, AKK) || Ihnen | andere Produkte
+```
+
+---
+
+## 📚 COMPLETE SET - ALL PARTS COMBINED
+
+**If you want to add ALL questions at once to one exercise, copy from here:**
+
+### Exercise Description for Complete Set:
+```
+# telc B1 Dative Practice - Complete Course
+
+This comprehensive exercise covers ALL aspects of German dative case for telc B1 exam preparation.
+
+## What You'll Practice:
+
+✅ **Part 1:** Basic dative articles (dem/der/den)
+✅ **Part 2:** Plural dative with -n rule
+✅ **Part 3:** Dative-only verbs
+✅ **Part 4:** Dative + Accusative (two objects)
+✅ **Part 6:** Error correction
+✅ **Part 9:** Real dialogue practice
+
+## Grammar Rules Summary:
+
+**Dative Articles:**
+- Masculine/Neuter: dem
+- Feminine: der
+- Plural: den (+ add -n to noun!)
+
+**Dative Verbs (memorize!):**
+helfen, danken, gefallen, gehören, passen, antworten, gratulieren, vertrauen, folgen, glauben
+
+**Two Objects Rule:**
+Person (DAT) + Thing (AKK)
+Example: Ich gebe **dem Kind** (DAT) **ein Buch** (AKK)
+
+**Word Order:**
+Time → Dative → Accusative → Place
+Exception: Pronoun accusative before dative
+
+## Study Strategy:
+
+📅 **Week 1:** Parts 1-3 (basic dative)
+📅 **Week 2:** Parts 4 (dative + accusative)
+📅 **Week 3:** Parts 6, 9 (error correction, dialogues)
+📅 **Week 4:** Mixed review + timed practice
+
+🎯 **Daily Goal:** 15-20 questions, 70%+ accuracy
+🎯 **Exam Ready:** 85%+ accuracy on all parts
+
+## Common Mistakes to Avoid:
+
+❌ Forgetting -n in plural dative (den Kinder → den Kindern)
+❌ Using accusative after dative verbs (helfen DIE Frau → der Frau)
+❌ Wrong word order with two objects
+❌ Confusing gefallen (es gefällt MIR = I like it)
+
+Viel Erfolg! 🎯
+```
+
+### ALL Questions Combined (75 questions):
+```
+# Part 1: Basic Dative Articles
+Ich gebe ___ Nachbarin die Schlüssel zurück. | der
+Der Arzt hilft ___ Patienten bei der Therapie. | dem
+Diese Wohnung gehört ___ Familie Müller. | der
+Die neue Kollegin gefällt ___ Chef sehr gut. | dem
+Er antwortet ___ Freunden auf die E-Mail. | den
+Wir danken ___ Lehrern für den interessanten Unterricht. | den
+Das Fahrrad gehört ___ Kind aus der Nachbarschaft. | dem
+Die Schuhe passen ___ Kundinnen nicht. | den
+Sie vertraut ___ Ärztin vollkommen. | der
+Ich gratuliere ___ Kollegen zum Geburtstag. | dem
+
+# Part 2.1: Transform to Plural
+das Kind >> den Kindern
+die Studentin >> den Studentinnen
+der Nachbar >> den Nachbarn
+das Auto >> den Autos
+die Kollegin >> den Kolleginnen
+der Tourist >> den Touristen
+das Restaurant >> den Restaurants
+die Ärztin >> den Ärztinnen
+
+# Part 2.2: Plural Dative in Context
+Ich helfe ___ (die Kinder) bei den Hausaufgaben. | den Kindern
+Das Haus gehört ___ (meine Eltern). | meinen Eltern
+Sie dankt ___ (die Kollegen) für die Unterstützung. | den Kollegen
+Der Kurs gefällt ___ (die Studenten) sehr gut. | den Studenten
+Er antwortet ___ (die Nachbarn) höflich. | den Nachbarn
+
+# Part 3: Dative Verbs
+Meine Schwester ___ mir oft im Haushalt. | hilft
+Wir ___ Ihnen herzlich für die Einladung. | danken
+Berlin ___ vielen Touristen wegen der Kultur. | gefällt
+Diese Tasche ___ meiner Mutter. | gehört
+Die Hose ___ mir nicht. Sie ist zu eng. | passt
+Ich ___ dir zum neuen Job! | gratuliere
+Der Student ___ dem Professor auf die Frage. | antwortet
+Ich ___ meinem besten Freund vollkommen. | vertraue
+Bitte ___ Sie mir zum Ausgang! | folgen
+Ich ___ dir, dass das die Wahrheit ist. | glaube
+
+# Part 4.1: Identify Dative and Accusative
+[IDENTIFY] Ich schenke meiner Freundin ein Buch || meiner Freundin=DAT | ein Buch=AKK
+[IDENTIFY] Er zeigt den Touristen die Sehenswürdigkeiten || den Touristen=DAT | die Sehenswürdigkeiten=AKK
+[IDENTIFY] Sie erklärt dem Schüler die Grammatik || dem Schüler=DAT | die Grammatik=AKK
+[IDENTIFY] Wir bringen unseren Nachbarn einen Kuchen || unseren Nachbarn=DAT | einen Kuchen=AKK
+[IDENTIFY] Ich empfehle dir dieses Restaurant || dir=DAT | dieses Restaurant=AKK
+
+# Part 4.2: Both Objects
+Ich kaufe ___ (mein Bruder) ___ (ein Geschenk) || meinem Bruder | ein Geschenk
+Sie leiht ___ (ihre Kollegin) ___ (das Auto) || ihrer Kollegin | das Auto
+Er schickt ___ (seine Eltern) ___ (eine Postkarte) || seinen Eltern | eine Postkarte
+Wir zeigen ___ (die Gäste) ___ (die Wohnung) || den Gästen | die Wohnung
+Kannst du ___ (ich) ___ (dein Handy) geben? || mir | dein Handy
+Der Lehrer erklärt ___ (die Schüler) ___ (die Aufgabe) || den Schülern | die Aufgabe
+Ich bringe ___ (du) ___ (eine Tasse Kaffee) || dir | eine Tasse Kaffee
+Sie schreibt ___ (ihr Freund) ___ (einen Brief) || ihrem Freund | einen Brief
+
+# Part 4.3: Word Order
+Word order: (ich / gebe / dem Lehrer / das Buch / morgen) | Ich gebe dem Lehrer morgen das Buch
+Word order: (er / zeigt / mir / seine neue Wohnung / heute) | Er zeigt mir heute seine neue Wohnung
+Word order: (wir / schenken / den Kindern / Spielzeug / zu Weihnachten) | Wir schenken den Kindern zu Weihnachten Spielzeug
+Word order: (sie / erklärt / ihrem Chef / das Problem / in der Besprechung) | Sie erklärt ihrem Chef in der Besprechung das Problem
+
+# Part 6: Error Correction
+Correct: Ich helfe der Mann im Garten | Ich helfe dem Mann im Garten
+Correct: Das Buch gehört den Kind | Das Buch gehört dem Kind
+Correct: Sie dankt die Kollegin für die Hilfe | Sie dankt der Kollegin für die Hilfe
+Correct: Die Schuhe passen dem Kinder nicht | Die Schuhe passen den Kindern nicht
+Correct: Wir gratulieren den Lehrer zum Jubiläum | Wir gratulieren dem Lehrer zum Jubiläum
+Correct: Er antwortet der Freunde auf die Frage | Er antwortet den Freunden auf die Frage
+Correct: Ich gebe dem Nachbarin die Blumen | Ich gebe der Nachbarin die Blumen
+Correct: Die Stadt gefällt den Tourist sehr gut | Die Stadt gefällt dem Touristen sehr gut
+
+# Part 9: Dialogue
+Kann ich ___ (Sie, DAT) helfen? | Ihnen
+Ja, ich suche ___ (ein Geschenk, AKK) für ___ (meine Mutter, DAT) || ein Geschenk | meine Mutter
+Ich kann ___ (Sie, DAT) ___ (diese Tasche, AKK) empfehlen || Ihnen | diese Tasche
+Sie gefällt ___ (viele Kundinnen, DAT) | vielen Kundinnen
+Können Sie ___ (ich, DAT) auch ___ (eine Geschenkverpackung, AKK) geben? || mir | eine Geschenkverpackung
+Ich zeige ___ (Sie, DAT) auch noch ___ (andere Produkte, AKK) || Ihnen | andere Produkte
+```
+
+---
+
+## 📊 Exercise Statistics
+
+**Total Questions:** 75
+**Question Types:**
+- Fill-in-Blank: 37 questions (49%)
+- Transform: 8 questions (11%)
+- Multi-Blank: 14 questions (19%)
+- Identify: 5 questions (7%)
+- Error Correction: 8 questions (11%)
+- Dialogue: 3 questions (4%)
+
+**Estimated Practice Time:**
+- Full set: 30-40 minutes
+- By parts: 5-10 minutes each
+
+**Recommended Approach:**
+1. Add parts separately (better for SRS tracking)
+2. Practice 1-2 parts per day
+3. Complete full course in 1-2 weeks
+
+---
+
+## 🎯 Quick Import Instructions
+
+### Option A: Import by Parts (Recommended)
+```
+1. Create Exercise: "telc B1 - Part 1"
+2. Copy Part 1 description
+3. Copy Part 1 questions
+4. Bulk add
+5. Repeat for Parts 2-9
+```
+
+### Option B: Import Complete Set
+```
+1. Create Exercise: "telc B1 Dative - Complete"
+2. Copy complete description
+3. Copy all 75 questions
+4. Bulk add once
+```
+
+---
+
+## 🎓 **PART 10: Final telc B1 Simulation**
+
+### Exercise Description
+**Grammar Focus:** Formal email writing with multiple dative constructions (final exam simulation)
+
+**Exam Relevance:** This is a realistic telc B1 writing task (Teil 2). You must write a formal email of approximately 80 words using specific grammatical structures.
+
+**Learning Objectives:**
+- Write formal emails with correct salutation and closing
+- Use dative verbs appropriately in formal context
+- Combine multiple required points in cohesive text
+- Meet word count requirements (80 words)
+
+**Required Elements:**
+1. Formal salutation (Sehr geehrte Damen und Herren,)
+2. Thank you for the course (danken + DAT)
+3. Say what you liked (gefallen + DAT)
+4. Ask about certificate ownership (gehören + DAT)
+5. Request help with registration (helfen + DAT)
+6. Formal closing (Mit freundlichen Grüßen)
+
+**Study Tips:**
+- Use formal "Sie" form consistently
+- Include connecting words (außerdem, deshalb, auch)
+- Practice writing similar emails for other contexts
+- Check word count after writing (aim for 80-100 words)
+
+**Common Mistakes to Avoid:**
+- Mixing formal/informal (Sie vs. du)
+- Forgetting dative after required verbs
+- No closing greeting
+- Too short (less than 60 words) or too long (over 120 words)
+
+---
+
+### 📝 Part 10 - NOW SUPPORTED! ✅
+
+**✅ NEW:** This can now be pasted into the bulk add feature! It will show with a large text area for extended writing.
+
+**Format:** `[WRITING] Task description | Sample answer (can be multiple lines)`
+
+```
+[WRITING] Schreiben Sie eine formelle E-Mail an die Sprachschule (ca. 80 Wörter). Punkte: 1) Bedanken (danken+DAT) 2) Was gefallen hat (gefallen+DAT) 3) Zertifikat-Frage (gehören+DAT) 4) Hilfe bei Anmeldung (helfen+DAT) | Sehr geehrte Damen und Herren, ich möchte Ihnen herzlich für den ausgezeichneten Deutschkurs danken. Der Unterricht hat mir sehr gut gefallen, besonders die Grammatikübungen und die freundliche Atmosphäre. Ich habe eine Frage: Wem gehört eigentlich das Zertifikat nach dem Kurs - mir oder der Schule? Außerdem möchte ich fragen: Können Sie mir bitte bei der Anmeldung für den nächsten B2-Kurs helfen? Ich weiß nicht genau, welche Dokumente ich brauche. Ich freue mich auf Ihre Antwort. Mit freundlichen Grüßen, [Ihr Name]
+```
+
+**How it works in the app:**
+1. You'll see the email writing task with all required points
+2. Write your email in a large text area (6+ lines)
+3. Click "Check Answer" to see the sample email
+4. Compare structure, grammar, and completeness
+5. Self-assess using the checklist:
+   - [ ] Formal salutation ✓
+   - [ ] Used danken + DAT ✓
+   - [ ] Used gefallen + DAT ✓
+   - [ ] Asked about certificate with gehören ✓
+   - [ ] Requested help with helfen + DAT ✓
+   - [ ] Formal closing ✓
+6. Mark as "similar enough" ✓ or "needs practice" ✗
+
+---
+
+### Option C: Custom Selection
+```
+1. Pick specific parts you need
+2. Combine descriptions
+3. Copy selected questions
+4. Create custom exercise
+```
+
+---
+
+## ✅ Verification Checklist
+
+After importing, verify:
+- [ ] All questions imported (check count)
+- [ ] Question types correctly detected (check badges)
+- [ ] No parsing errors (no skipped questions)
+- [ ] Answers display correctly
+- [ ] Practice mode works for all types
+
+---
+
+**Ready to start? Copy the sections above and paste into your app! 🚀**
+
+**Note:** Parts 5, 7, and 10 contain open-ended writing/speaking tasks that cannot be auto-graded. Use them for self-study or teacher review. All other parts (1-4, 6, 8-9) are fully auto-gradeable in the app.
+
+**Viel Erfolg bei deiner telc B1 Prüfung! 🎯**

@@ -1,17 +1,37 @@
 # German Practice Trainer
 
-A smart German grammar practice application built with React, TypeScript, Vite, and Tailwind CSS. Features an intelligent Spaced Repetition System (SRS) to help you master German grammar efficiently.
+A smart German grammar practice application built with React, TypeScript, Vite, and Tailwind CSS. Features an intelligent Spaced Repetition System (SRS) and support for **all** practice types: auto-graded questions AND self-assessed writing/speaking practice!
 
-## Features
+## ✨ Features
 
 - 🎯 **Smart Practice System**: Questions are prioritized based on your performance
 - 📊 **Progress Tracking**: Track mastery levels (New, Weak, Learning, Mastered)
 - 💾 **Local Storage**: All data persists in your browser
 - 🎨 **Beautiful UI**: Modern, responsive design with Tailwind CSS
 - ⚡ **Fast**: Built with Vite for optimal performance
-- 📝 **Bulk Import**: Add multiple questions at once using simple format
+- 📝 **7 Question Types**:
+  - ✅ Fill-in-blank (auto-graded)
+  - ✅ Transform (auto-graded)
+  - ✅ Multi-blank (auto-graded)
+  - ✅ Identify/Label (auto-graded)
+  - ✅ Reading comprehension (auto-graded)
+  - ✍️ **Writing practice** (self-assessed with sample answers) **NEW!**
+  - �️ **Speaking practice** (self-assessed with sample answers) **NEW!**
+- �📝 **Bulk Import**: Add 100+ questions at once using simple format
 - 🔄 **Session-Based Learning**: Configurable session sizes (5-30 questions)
 - 📈 **Detailed Statistics**: Overall accuracy and per-question progress
+- ⏰ **Spaced Repetition**: Smart review intervals based on mastery level
+- 🎓 **Perfect for telc B1 Exam**: Covers all exam sections
+
+## 🆕 What's New
+
+**Self-Assessment Feature**: Practice writing and speaking with sample answer comparison!
+
+- **Writing Practice**: Get a large text area, write your response, compare with sample answer, self-assess
+- **Speaking Practice**: Instructions to speak out loud, type what you said, compare with sample
+- **Reading Comprehension**: Answer questions based on text (auto-graded)
+
+See [NEW_FEATURES.md](NEW_FEATURES.md) for detailed guide!
 
 ## How It Works
 
@@ -84,15 +104,38 @@ npm run preview
 - Enter the correct answer
 - Click "Add Question"
 
-**Bulk Add:**
-- Use the format: `Question with ___ | answer`
-- One question per line
-- Example:
-  ```
-  Ich sehe ___ Hund. | den
-  ___ Frau arbeitet im Büro. | die
-  Er trinkt ___ Wasser. | das
-  ```
+**Bulk Add - Multiple Question Types:**
+
+The app supports 4 different question types with different input formats:
+
+1. **📝 Fill-in-Blank** (default):
+   ```
+   Ich sehe ___ Hund. | den
+   ___ Frau arbeitet im Büro. | die
+   Er trinkt ___ Wasser. | das
+   ```
+
+2. **🔄 Transform** (using `>>`):
+   ```
+   der Freund >> den Freunden
+   das Kind >> den Kindern
+   die Studentin >> den Studentinnen
+   ```
+
+3. **🔢 Multiple Fill-in-Blanks** (using `||`):
+   ```
+   Ich kaufe ___ (mein Bruder) ___ (ein Geschenk) || meinem Bruder | ein Geschenk
+   Sie leiht ___ (ihre Kollegin) ___ (das Auto) || ihrer Kollegin | das Auto
+   ```
+
+4. **🏷️ Identify/Label** (using `[IDENTIFY]`):
+   ```
+   [IDENTIFY] Ich schenke meiner Freundin ein Buch || meiner Freundin=DAT | ein Buch=AKK
+   [IDENTIFY] Er zeigt den Touristen die Stadt || den Touristen=DAT | die Stadt=AKK
+   ```
+
+**Mixing Question Types:**
+You can paste all question types together in the bulk add field, and the app will automatically detect and parse each type correctly!
 
 ### Practicing
 
