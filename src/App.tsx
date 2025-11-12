@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Plus, BookOpen, Target, Edit2, Check, X, Clock } from 'lucide-react';
+import { Trash2, Plus, BookOpen, Target, Edit2, Check, X, Clock, Download, Upload } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 const STORAGE_KEY = 'german-practice-data';
 
 // Question interface with all required fields
 interface Question {
   id: string;
-  type: 'fill-blank' | 'transform' | 'multi-blank' | 'identify' | 'writing' | 'speaking' | 'reading';
+  type: 'fill-blank' | 'transform' | 'multi-blank' | 'identify' | 'writing' | 'speaking' | 'reading' | 'error-correction' | 'word-order' | 'choice' | 'match' | 'order' | 'cloze' | 'dialogue';
   text: string;
   answer: string | string[]; // Array for multiple answers, or sample answer for practice-only types
-  context?: string; // Optional context/hints
+  context?: string; // Optional context/hints - used for choices in CHOICE type, passage in CLOZE, etc.
   timesAnswered: number;
   timesCorrect: number;
   lastReviewed: string | null;
@@ -22,6 +23,22 @@ interface Exercise {
   description?: string; // Markdown-supported exercise description
   instructions?: string; // Instructions shown before each question
   questions: Question[];
+}
+
+// NEW: Topic interface for organizing exercises
+interface Topic {
+  id: string;
+  title: string;
+  description?: string;
+  createdAt: string;
+  exercises: Exercise[];
+}
+
+// Parsed exercise structure from bulk import
+interface ParsedExercise {
+  title: string;
+  description: string;
+  questions: string[];
 }
 
 // Question type labels and descriptions
@@ -67,6 +84,48 @@ const QUESTION_TYPE_INFO = {
     icon: '📖',
     description: 'Read the text and answer questions',
     autoGrade: true
+  },
+  'error-correction': {
+    label: 'Error Correction',
+    icon: '🔧',
+    description: 'Find and correct the grammatical error',
+    autoGrade: true
+  },
+  'word-order': {
+    label: 'Word Order',
+    icon: '🔀',
+    description: 'Arrange words in correct German sentence order',
+    autoGrade: true
+  },
+  'choice': {
+    label: 'Multiple Choice',
+    icon: '☑️',
+    description: 'Choose the correct answer from options',
+    autoGrade: true
+  },
+  'match': {
+    label: 'Matching Exercise',
+    icon: '🔗',
+    description: 'Match items from two columns',
+    autoGrade: true
+  },
+  'order': {
+    label: 'Sentence Building',
+    icon: '🧩',
+    description: 'Build a sentence from given words',
+    autoGrade: true
+  },
+  'cloze': {
+    label: 'Cloze Passage',
+    icon: '📄',
+    description: 'Fill in blanks in a text passage',
+    autoGrade: true
+  },
+  'dialogue': {
+    label: 'Dialogue Practice',
+    icon: '💬',
+    description: 'Practice conversational responses',
+    autoGrade: false
   }
 };
 
@@ -87,8 +146,8 @@ const getMasteryLevel = (timesAnswered: number, timesCorrect: number): 'new' | '
     if (percentage >= 50) return 'middle';
     return 'weak';
   } else {
-    // Mature stage - can reach mastered
-    if (percentage >= 85 && timesCorrect >= 5) return 'mastered';
+    // Mature stage - can reach mastered (5+ attempts)
+    if (percentage >= 80 && timesCorrect >= 5) return 'mastered';
     if (percentage >= 60) return 'middle';
     return 'weak';
   }
@@ -143,32 +202,174 @@ const getMasteryLabel = (level: string) => {
   return labels[level as keyof typeof labels];
 };
 
+// ========== EXERCISE PARSING FUNCTIONS ==========
+
+// Parse a single exercise from text format
+const parseSingleExercise = (text: string): ParsedExercise | null => {
+  const lines = text.split('\n');
+  let currentSection: 'title' | 'description' | 'questions' | null = null;
+  let title = '';
+  let descriptionLines: string[] = [];
+  let questions: string[] = [];
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    
+    // Detect title line
+    if (trimmed.startsWith('title:')) {
+      currentSection = 'title';
+      title = trimmed.replace('title:', '').trim();
+    }
+    // Detect description section
+    else if (trimmed.startsWith('description') && (trimmed.includes(':') || trimmed.includes('->'))) {
+      currentSection = 'description';
+      continue; // Skip the "description:" line itself
+    }
+    // Detect questions section
+    else if (trimmed.startsWith('questions') && (trimmed.includes(':') || trimmed.includes('->'))) {
+      currentSection = 'questions';
+      continue; // Skip the "questions:" line itself
+    }
+    // Add content to current section
+    else if (currentSection === 'description' && line) {
+      descriptionLines.push(line); // Keep original formatting for markdown
+    }
+    else if (currentSection === 'questions' && trimmed) {
+      questions.push(trimmed);
+    }
+  }
+  
+  const description = descriptionLines.join('\n').trim();
+  
+  if (!title || questions.length === 0) return null;
+  
+  return { title, description, questions };
+};
+
+// Parse multiple exercises from text with ---EXERCISE--- delimiters
+const parseMultipleExercises = (text: string): ParsedExercise[] => {
+  const exercises: ParsedExercise[] = [];
+  
+  // Split by ---EXERCISE--- delimiter
+  const blocks = text.split('---EXERCISE---').filter(b => b.trim());
+  
+  for (const block of blocks) {
+    // Remove ---END--- if present
+    const cleanBlock = block.replace(/---END---/g, '').trim();
+    
+    // Try to parse title
+    const titleMatch = cleanBlock.match(/^title:\s*(.+?)$/m);
+    if (!titleMatch) continue;
+    const title = titleMatch[1].trim();
+    
+    // Try to parse description (everything between "description:" and "questions:")
+    let description = '';
+    const descMatch1 = cleanBlock.match(/description:\s*\|\s*\n([\s\S]*?)(?=\nquestions:)/);
+    const descMatch2 = cleanBlock.match(/description:\s*\n([\s\S]*?)(?=\nquestions:)/);
+    const descMatch3 = cleanBlock.match(/description\s*->\s*\n([\s\S]*?)(?=\nquestions)/);
+    
+    if (descMatch1) {
+      description = descMatch1[1].trim();
+    } else if (descMatch2) {
+      description = descMatch2[1].trim();
+    } else if (descMatch3) {
+      description = descMatch3[1].trim();
+    }
+    
+    // Try to parse questions (everything after "questions:")
+    const questionsMatch = cleanBlock.match(/questions:\s*\n([\s\S]*?)$/);
+    const questionsMatch2 = cleanBlock.match(/questions\s*->\s*\n([\s\S]*?)$/);
+    
+    let questions: string[] = [];
+    if (questionsMatch) {
+      questions = questionsMatch[1]
+        .split('\n')
+        .map(q => q.trim())
+        .filter(q => q && !q.startsWith('---'));
+    } else if (questionsMatch2) {
+      questions = questionsMatch2[1]
+        .split('\n')
+        .map(q => q.trim())
+        .filter(q => q && !q.startsWith('---'));
+    }
+    
+    if (questions.length > 0) {
+      exercises.push({ title, description, questions });
+    }
+  }
+  
+  return exercises;
+};
+
+// Migrate old exercises data to topics structure
+const migrateToTopics = (oldExercises: Exercise[]): Topic[] => {
+  if (oldExercises.length === 0) return [];
+  
+  // Create a default "My Exercises" topic for existing exercises
+  return [{
+    id: 'topic-default',
+    title: 'My Exercises',
+    description: 'Your practice exercises',
+    createdAt: new Date().toISOString(),
+    exercises: oldExercises
+  }];
+};
+
 function App() {
-  const [exercises, setExercises] = useState<Exercise[]>([]);
+  // State management - Topics instead of Exercises
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [view, setView] = useState<'list' | 'add' | 'practice' | 'sessionComplete'>('list');
-  const [newExerciseName, setNewExerciseName] = useState('');
-  const [newExerciseDescription, setNewExerciseDescription] = useState('');
-  const [singleQuestion, setSingleQuestion] = useState({ text: '', answer: '' });
-  const [bulkText, setBulkText] = useState('');
-  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
-  const [userAnswer, setUserAnswer] = useState('');
-  const [feedback, setFeedback] = useState<{ correct: boolean; correctAnswer: string | string[] } | null>(null);
+  
+  // Topic management states
+  const [newTopicTitle, setNewTopicTitle] = useState('');
+  const [newTopicDescription, setNewTopicDescription] = useState('');
+  const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
+  const [editingTopicTitle, setEditingTopicTitle] = useState('');
+  const [editingTopicDescription, setEditingTopicDescription] = useState('');
+  
+  // Exercise management states
+  const [singleExerciseText, setSingleExerciseText] = useState('');
+  const [bulkExercisesText, setBulkExercisesText] = useState('');
+  const [showAddExerciseModal, setShowAddExerciseModal] = useState(false);
+  const [showBulkExerciseModal, setShowBulkExerciseModal] = useState(false);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [editingDescription, setEditingDescription] = useState('');
+  
+  // Question management states
+  const [singleQuestion, setSingleQuestion] = useState({ text: '', answer: '' });
+  const [bulkText, setBulkText] = useState('');
+  
+  // Practice states
+  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  const [userAnswer, setUserAnswer] = useState('');
+  const [feedback, setFeedback] = useState<{ correct: boolean; correctAnswer: string | string[] } | null>(null);
   const [sessionPool, setSessionPool] = useState<Question[]>([]);
-  const [sessionSize, setSessionSize] = useState(10);
+  const [sessionSize, setSessionSize] = useState(5);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [sessionStats, setSessionStats] = useState({ correct: 0, total: 0 });
 
-  // Load data from localStorage
+  // Load data from localStorage with migration support
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
         const data = JSON.parse(stored);
-        setExercises(data.exercises || []);
+        
+        // Check if data has topics or old exercises format
+        if (data.topics) {
+          setTopics(data.topics);
+        } else if (data.exercises) {
+          // Migrate old format to topics
+          const migratedTopics = migrateToTopics(data.exercises);
+          setTopics(migratedTopics);
+          // Auto-select the migrated topic
+          if (migratedTopics.length > 0) {
+            setSelectedTopicId(migratedTopics[0].id);
+          }
+        }
       } catch (e) {
         console.error('Failed to parse stored data');
       }
@@ -177,32 +378,230 @@ function App() {
 
   // Save to localStorage
   useEffect(() => {
-    if (exercises.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ exercises }));
+    if (topics.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ topics }));
     }
-  }, [exercises]);
+  }, [topics]);
 
-  const createExercise = () => {
-    if (!newExerciseName.trim()) return;
+  // ========== HELPER FUNCTIONS ==========
+  
+  // Get current topic
+  const getCurrentTopic = (): Topic | undefined => {
+    return topics.find(t => t.id === selectedTopicId);
+  };
+
+  // Get current exercise
+  const getCurrentExercise = (): Exercise | undefined => {
+    const topic = getCurrentTopic();
+    if (!topic) return undefined;
+    return topic.exercises.find(e => e.id === selectedExerciseId);
+  };
+
+  // Update topics with new data
+  const updateTopics = (updater: (topics: Topic[]) => Topic[]) => {
+    setTopics(updater(topics));
+  };
+
+  // ========== TOPIC CRUD FUNCTIONS ==========
+  
+  const createTopic = () => {
+    if (!newTopicTitle.trim()) return;
+    
+    const newTopic: Topic = {
+      id: `topic-${Date.now()}`,
+      title: newTopicTitle.trim(),
+      description: newTopicDescription.trim() || undefined,
+      createdAt: new Date().toISOString(),
+      exercises: []
+    };
+    
+    setTopics([...topics, newTopic]);
+    setNewTopicTitle('');
+    setNewTopicDescription('');
+    setSelectedTopicId(newTopic.id);
+  };
+
+  const deleteTopic = (topicId: string) => {
+    if (window.confirm('Are you sure you want to delete this topic and all its exercises?')) {
+      setTopics(topics.filter(t => t.id !== topicId));
+      if (selectedTopicId === topicId) {
+        setSelectedTopicId(null);
+        setSelectedExerciseId(null);
+        setView('list');
+      }
+    }
+  };
+
+  const startEditTopic = (topic: Topic) => {
+    setEditingTopicId(topic.id);
+    setEditingTopicTitle(topic.title);
+    setEditingTopicDescription(topic.description || '');
+  };
+
+  const saveTopicEdit = () => {
+    if (!editingTopicTitle.trim()) return;
+    
+    updateTopics(topics => topics.map(t => 
+      t.id === editingTopicId 
+        ? { ...t, title: editingTopicTitle.trim(), description: editingTopicDescription.trim() || undefined }
+        : t
+    ));
+    setEditingTopicId(null);
+    setEditingTopicTitle('');
+    setEditingTopicDescription('');
+  };
+
+  // ========== EXERCISE CRUD FUNCTIONS ==========
+
+  const addSingleExerciseFromText = () => {
+    if (!singleExerciseText.trim() || !selectedTopicId) return;
+    
+    const parsed = parseSingleExercise(singleExerciseText);
+    if (!parsed) {
+      alert('Could not parse exercise. Please check the format.');
+      return;
+    }
     
     const newExercise: Exercise = {
-      id: Date.now().toString(),
-      name: newExerciseName.trim(),
-      description: newExerciseDescription.trim() || undefined,
+      id: `exercise-${Date.now()}`,
+      name: parsed.title,
+      description: parsed.description || undefined,
       questions: []
     };
     
-    setExercises([...exercises, newExercise]);
-    setNewExerciseName('');
-    setNewExerciseDescription('');
+    // Parse questions
+    const newQuestions: Question[] = [];
+    parsed.questions.forEach((line, index) => {
+      const parsedQ = parseQuestion(line);
+      if (parsedQ) {
+        newQuestions.push({
+          id: `${Date.now()}-${index}-${Math.random()}`,
+          ...parsedQ,
+          timesAnswered: 0,
+          timesCorrect: 0,
+          lastReviewed: null,
+          createdAt: new Date().toISOString()
+        });
+      }
+    });
+    
+    newExercise.questions = newQuestions;
+    
+    updateTopics(topics => topics.map(t => 
+      t.id === selectedTopicId
+        ? { ...t, exercises: [...t.exercises, newExercise] }
+        : t
+    ));
+    
+    setSingleExerciseText('');
+    setShowAddExerciseModal(false);
     setSelectedExerciseId(newExercise.id);
-    setView('add');
   };
 
-  const deleteExercise = (id: string) => {
+  const addBulkExercisesFromText = () => {
+    if (!bulkExercisesText.trim() || !selectedTopicId) return;
+    
+    const parsedExercises = parseMultipleExercises(bulkExercisesText);
+    if (parsedExercises.length === 0) {
+      alert('Could not parse any exercises. Please check the format.');
+      return;
+    }
+    
+    const newExercises: Exercise[] = parsedExercises.map((parsed, exIndex) => {
+      const newQuestions: Question[] = [];
+      
+      parsed.questions.forEach((line, qIndex) => {
+        const parsedQ = parseQuestion(line);
+        if (parsedQ) {
+          newQuestions.push({
+            id: `${Date.now()}-ex${exIndex}-q${qIndex}-${Math.random()}`,
+            ...parsedQ,
+            timesAnswered: 0,
+            timesCorrect: 0,
+            lastReviewed: null,
+            createdAt: new Date().toISOString()
+          });
+        }
+      });
+      
+      return {
+        id: `exercise-${Date.now()}-${exIndex}`,
+        name: parsed.title,
+        description: parsed.description || undefined,
+        questions: newQuestions
+      };
+    });
+    
+    updateTopics(topics => topics.map(t => 
+      t.id === selectedTopicId
+        ? { ...t, exercises: [...t.exercises, ...newExercises] }
+        : t
+    ));
+    
+    setBulkExercisesText('');
+    setShowBulkExerciseModal(false);
+    alert(`Successfully added ${newExercises.length} exercises!`);
+  };
+
+  // Export all data to JSON file
+  const exportData = () => {
+    const dataStr = JSON.stringify(topics, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `german-trainer-backup-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Import data from JSON file (overwrites existing data)
+  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const importedTopics: Topic[] = JSON.parse(content);
+        
+        // Validate structure
+        if (!Array.isArray(importedTopics)) {
+          alert('Invalid file format. Expected an array of topics.');
+          return;
+        }
+        
+        // Confirm before overwriting
+        const confirmed = window.confirm(
+          `This will REPLACE all existing data with ${importedTopics.length} topic(s) from the file. Continue?`
+        );
+        
+        if (confirmed) {
+          setTopics(importedTopics);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(importedTopics));
+          alert(`Successfully imported ${importedTopics.length} topic(s)!`);
+        }
+      } catch (error) {
+        alert('Error reading file. Please ensure it\'s a valid JSON file exported from this app.');
+        console.error('Import error:', error);
+      }
+    };
+    reader.readAsText(file);
+    
+    // Reset file input
+    event.target.value = '';
+  };
+
+  const deleteExercise = (exerciseId: string) => {
     if (window.confirm('Are you sure you want to delete this exercise?')) {
-      setExercises(exercises.filter(e => e.id !== id));
-      if (selectedExerciseId === id) {
+      updateTopics(topics => topics.map(t => 
+        t.id === selectedTopicId
+          ? { ...t, exercises: t.exercises.filter(e => e.id !== exerciseId) }
+          : t
+      ));
+      
+      if (selectedExerciseId === exerciseId) {
         setSelectedExerciseId(null);
         setView('list');
       }
@@ -216,13 +615,21 @@ function App() {
   };
 
   const saveExerciseName = () => {
-    if (!editingName.trim()) return;
+    if (!editingName.trim() || !selectedTopicId) return;
     
-    setExercises(exercises.map(e => 
-      e.id === editingExerciseId 
-        ? { ...e, name: editingName.trim(), description: editingDescription.trim() || undefined }
-        : e
+    updateTopics(topics => topics.map(t => 
+      t.id === selectedTopicId
+        ? {
+            ...t,
+            exercises: t.exercises.map(e => 
+              e.id === editingExerciseId 
+                ? { ...e, name: editingName.trim(), description: editingDescription.trim() || undefined }
+                : e
+            )
+          }
+        : t
     ));
+    
     setEditingExerciseId(null);
     setEditingName('');
     setEditingDescription('');
@@ -232,6 +639,108 @@ function App() {
   const parseQuestion = (line: string): Omit<Question, 'id' | 'timesAnswered' | 'timesCorrect' | 'lastReviewed' | 'createdAt'> | null => {
     line = line.trim();
     if (!line) return null;
+
+    // Error Correction type (using "Correct:")
+    if (line.toLowerCase().startsWith('correct:')) {
+      const cleanLine = line.replace(/^correct:/i, '').trim();
+      const parts = cleanLine.split('|').map(p => p.trim());
+      if (parts.length === 2) {
+        return {
+          type: 'error-correction',
+          text: parts[0], // sentence with error
+          answer: parts[1] // corrected sentence
+        };
+      }
+    }
+
+    // Word Order type (using "Word order:")
+    if (line.toLowerCase().startsWith('word order:')) {
+      const cleanLine = line.replace(/^word order:/i, '').trim();
+      const parts = cleanLine.split('|').map(p => p.trim());
+      if (parts.length === 2) {
+        return {
+          type: 'word-order',
+          text: parts[0], // scrambled words (usually in parentheses)
+          answer: parts[1] // correct sentence
+        };
+      }
+    }
+
+    // Multiple Choice type (using [CHOICE])
+    // Format: [CHOICE] Question | Option1, Option2, Option3 | CorrectOption
+    if (line.toLowerCase().includes('[choice]')) {
+      const cleanLine = line.replace(/\[choice\]/gi, '').trim();
+      const parts = cleanLine.split('|').map(p => p.trim());
+      if (parts.length === 3) {
+        return {
+          type: 'choice',
+          text: parts[0], // question
+          context: parts[1], // options comma-separated
+          answer: parts[2] // correct option
+        };
+      }
+    }
+
+    // Matching Exercise type (using [MATCH])
+    // Format: [MATCH] Item1, Item2, Item3 || Match1, Match2, Match3 | Pair1, Pair2, Pair3
+    if (line.toLowerCase().includes('[match]')) {
+      const cleanLine = line.replace(/\[match\]/gi, '').trim();
+      const mainParts = cleanLine.split('|').map(p => p.trim());
+      if (mainParts.length === 2) {
+        const columnParts = mainParts[0].split('||').map(p => p.trim());
+        if (columnParts.length === 2) {
+          return {
+            type: 'match',
+            text: columnParts[0], // column A items (comma-separated)
+            context: columnParts[1], // column B items (comma-separated)
+            answer: mainParts[1].split(',').map(p => p.trim()) // correct pairs
+          };
+        }
+      }
+    }
+
+    // Sentence Building/Order type (using [ORDER])
+    // Format: [ORDER] word1 / word2 / word3 | Correct sentence
+    if (line.toLowerCase().includes('[order]')) {
+      const cleanLine = line.replace(/\[order\]/gi, '').trim();
+      const parts = cleanLine.split('|').map(p => p.trim());
+      if (parts.length === 2) {
+        return {
+          type: 'order',
+          text: parts[0], // scrambled words (slash or comma separated)
+          answer: parts[1] // correct sentence
+        };
+      }
+    }
+
+    // Cloze Passage type (using [CLOZE])
+    // Format: [CLOZE] Text with {blank1}, {blank2}, etc. | answer1, answer2, answer3
+    if (line.toLowerCase().includes('[cloze]')) {
+      const cleanLine = line.replace(/\[cloze\]/gi, '').trim();
+      const parts = cleanLine.split('|').map(p => p.trim());
+      if (parts.length === 2) {
+        return {
+          type: 'cloze',
+          text: parts[0], // passage with {blank} markers
+          answer: parts[1].split(',').map(a => a.trim()) // answers in order
+        };
+      }
+    }
+
+    // Dialogue Practice type (using [DIALOGUE])
+    // Format: [DIALOGUE] Context/Situation | Your prompt | Sample response
+    if (line.toLowerCase().includes('[dialogue]')) {
+      const cleanLine = line.replace(/\[dialogue\]/gi, '').trim();
+      const parts = cleanLine.split('|').map(p => p.trim());
+      if (parts.length === 3) {
+        return {
+          type: 'dialogue',
+          context: parts[0], // situation/context
+          text: parts[1], // your turn prompt
+          answer: parts[2] // sample response
+        };
+      }
+    }
 
     // Writing practice type (using [WRITING])
     if (line.toLowerCase().includes('[writing]')) {
@@ -334,14 +843,13 @@ function App() {
     return null;
   };
 
+  // ========== QUESTION CRUD FUNCTIONS ==========
+  
   const addSingleQuestion = () => {
-    if (!singleQuestion.text.trim() || !singleQuestion.answer.trim()) return;
-    
-    const exercise = exercises.find(e => e.id === selectedExerciseId);
-    if (!exercise) return;
+    if (!singleQuestion.text.trim() || !singleQuestion.answer.trim() || !selectedTopicId || !selectedExerciseId) return;
 
     const newQuestion: Question = {
-      id: Date.now().toString(),
+      id: `question-${Date.now()}`,
       type: 'fill-blank',
       text: singleQuestion.text.trim(),
       answer: singleQuestion.answer.trim(),
@@ -351,20 +859,24 @@ function App() {
       createdAt: new Date().toISOString()
     };
 
-    setExercises(exercises.map(e => 
-      e.id === selectedExerciseId
-        ? { ...e, questions: [...e.questions, newQuestion] }
-        : e
+    updateTopics(topics => topics.map(t => 
+      t.id === selectedTopicId
+        ? {
+            ...t,
+            exercises: t.exercises.map(e => 
+              e.id === selectedExerciseId
+                ? { ...e, questions: [...e.questions, newQuestion] }
+                : e
+            )
+          }
+        : t
     ));
 
     setSingleQuestion({ text: '', answer: '' });
   };
 
   const addBulkQuestions = () => {
-    if (!bulkText.trim()) return;
-    
-    const exercise = exercises.find(e => e.id === selectedExerciseId);
-    if (!exercise) return;
+    if (!bulkText.trim() || !selectedTopicId || !selectedExerciseId) return;
 
     const lines = bulkText.split('\n').filter(line => line.trim());
     const newQuestions: Question[] = [];
@@ -384,20 +896,36 @@ function App() {
     });
 
     if (newQuestions.length > 0) {
-      setExercises(exercises.map(e => 
-        e.id === selectedExerciseId
-          ? { ...e, questions: [...e.questions, ...newQuestions] }
-          : e
+      updateTopics(topics => topics.map(t => 
+        t.id === selectedTopicId
+          ? {
+              ...t,
+              exercises: t.exercises.map(e => 
+                e.id === selectedExerciseId
+                  ? { ...e, questions: [...e.questions, ...newQuestions] }
+                  : e
+              )
+            }
+          : t
       ));
       setBulkText('');
     }
   };
 
   const deleteQuestion = (questionId: string) => {
-    setExercises(exercises.map(e => 
-      e.id === selectedExerciseId
-        ? { ...e, questions: e.questions.filter(q => q.id !== questionId) }
-        : e
+    if (!selectedTopicId || !selectedExerciseId) return;
+    
+    updateTopics(topics => topics.map(t => 
+      t.id === selectedTopicId
+        ? {
+            ...t,
+            exercises: t.exercises.map(e => 
+              e.id === selectedExerciseId
+                ? { ...e, questions: e.questions.filter(q => q.id !== questionId) }
+                : e
+            )
+          }
+        : t
     ));
   };
 
@@ -460,12 +988,26 @@ function App() {
       if (added < size) added += addFromCategory(remainingMastered, size - added);
     }
 
+    // Final safety check: if we still don't have enough, just add any remaining questions
+    if (pool.length < size) {
+      const allRemaining = questions.filter(q => !usedIds.has(q.id));
+      const needed = size - pool.length;
+      for (let i = 0; i < Math.min(needed, allRemaining.length); i++) {
+        const randomIndex = Math.floor(Math.random() * allRemaining.length);
+        pool.push(allRemaining[randomIndex]);
+        allRemaining.splice(randomIndex, 1);
+      }
+    }
+
     // Shuffle the pool to randomize order
     return pool.sort(() => Math.random() - 0.5);
   };
 
   const startPractice = () => {
-    const exercise = exercises.find(e => e.id === selectedExerciseId);
+    const topic = getCurrentTopic();
+    if (!topic) return;
+    
+    const exercise = topic.exercises.find(e => e.id === selectedExerciseId);
     if (!exercise || exercise.questions.length === 0) return;
 
     // Create a pool of questions for this session based on SRS
@@ -484,13 +1026,13 @@ function App() {
   };
 
   const checkAnswer = () => {
-    if (!userAnswer.trim() || !currentQuestion) return;
+    if (!userAnswer.trim() || !currentQuestion || !selectedTopicId || !selectedExerciseId) return;
 
     let correct = false;
     const questionAnswer = currentQuestion.answer;
 
-    // For practice-only types (writing/speaking), show sample answer but don't auto-grade
-    if (currentQuestion.type === 'writing' || currentQuestion.type === 'speaking') {
+    // For practice-only types (writing/speaking/dialogue), show sample answer but don't auto-grade
+    if (currentQuestion.type === 'writing' || currentQuestion.type === 'speaking' || currentQuestion.type === 'dialogue') {
       // Just show the sample answer, user will self-assess
       setFeedback({ correct: false, correctAnswer: questionAnswer });
       // Update session stats to count as attempted (correct will be set by user's self-assessment)
@@ -500,21 +1042,28 @@ function App() {
       }));
       
       // Update question stats
-      setExercises(exercises.map(e => 
-        e.id === selectedExerciseId
+      updateTopics(topics => topics.map(t => 
+        t.id === selectedTopicId
           ? {
-              ...e,
-              questions: e.questions.map(q => 
-                q.id === currentQuestion.id
+              ...t,
+              exercises: t.exercises.map(e => 
+                e.id === selectedExerciseId
                   ? {
-                      ...q,
-                      timesAnswered: q.timesAnswered + 1,
-                      lastReviewed: new Date().toISOString()
+                      ...e,
+                      questions: e.questions.map(q => 
+                        q.id === currentQuestion.id
+                          ? {
+                              ...q,
+                              timesAnswered: q.timesAnswered + 1,
+                              lastReviewed: new Date().toISOString()
+                            }
+                          : q
+                      )
                     }
-                  : q
+                  : e
               )
             }
-          : e
+          : t
       ));
 
       const updatedQuestion = {
@@ -529,13 +1078,38 @@ function App() {
     // Auto-grade for other question types
     // Check answer based on question type
     if (Array.isArray(questionAnswer)) {
-      // For multi-blank, identify, or reading questions with multiple answers
-      const userAnswersList = userAnswer.split(',').map(a => a.trim().toLowerCase());
-      const correctAnswers = questionAnswer.map(a => a.toLowerCase());
-      correct = userAnswersList.length === correctAnswers.length && 
-                userAnswersList.every((ans, idx) => ans === correctAnswers[idx]);
+      // For reading comprehension: ANY one answer is acceptable (OR logic)
+      if (currentQuestion.type === 'reading') {
+        const userAnswerLower = userAnswer.trim().toLowerCase();
+        const correctAnswers = questionAnswer.map(a => a.toLowerCase());
+        correct = correctAnswers.some(ans => ans === userAnswerLower);
+      } 
+      // For cloze passages: ALL blanks must match in order
+      else if (currentQuestion.type === 'cloze') {
+        const userAnswersList = userAnswer.split(',').map(a => a.trim().toLowerCase());
+        const correctAnswers = questionAnswer.map(a => a.toLowerCase());
+        correct = userAnswersList.length === correctAnswers.length && 
+                  userAnswersList.every((ans, idx) => ans === correctAnswers[idx]);
+      }
+      // For matching: Check if all pairs are correct (order doesn't matter)
+      else if (currentQuestion.type === 'match') {
+        const userPairs = userAnswer.split(',').map(p => p.trim().toLowerCase().replace(/\s+/g, ' '));
+        const correctPairs = questionAnswer.map(p => p.toLowerCase().replace(/\s+/g, ' '));
+        // Sort both arrays and compare
+        const userSorted = [...userPairs].sort();
+        const correctSorted = [...correctPairs].sort();
+        correct = userSorted.length === correctSorted.length &&
+                  userSorted.every((pair, idx) => pair === correctSorted[idx]);
+      }
+      // For multi-blank/identify: ALL answers required in order (AND logic)
+      else {
+        const userAnswersList = userAnswer.split(',').map(a => a.trim().toLowerCase());
+        const correctAnswers = questionAnswer.map(a => a.toLowerCase());
+        correct = userAnswersList.length === correctAnswers.length && 
+                  userAnswersList.every((ans, idx) => ans === correctAnswers[idx]);
+      }
     } else {
-      // For fill-blank, transform, or reading questions with single answer
+      // For fill-blank, transform, error-correction, word-order, order, choice - simple string match
       correct = userAnswer.trim().toLowerCase() === questionAnswer.toLowerCase();
     }
     
@@ -546,22 +1120,29 @@ function App() {
     }));
 
     // Update question with new stats and last reviewed time
-    setExercises(exercises.map(e => 
-      e.id === selectedExerciseId
+    updateTopics(topics => topics.map(t => 
+      t.id === selectedTopicId
         ? {
-            ...e,
-            questions: e.questions.map(q => 
-              q.id === currentQuestion.id
+            ...t,
+            exercises: t.exercises.map(e => 
+              e.id === selectedExerciseId
                 ? {
-                    ...q,
-                    timesAnswered: q.timesAnswered + 1,
-                    timesCorrect: q.timesCorrect + (correct ? 1 : 0),
-                    lastReviewed: new Date().toISOString()
+                    ...e,
+                    questions: e.questions.map(q => 
+                      q.id === currentQuestion.id
+                        ? {
+                            ...q,
+                            timesAnswered: q.timesAnswered + 1,
+                            timesCorrect: q.timesCorrect + (correct ? 1 : 0),
+                            lastReviewed: new Date().toISOString()
+                          }
+                        : q
+                    )
                   }
-                : q
+                : e
             )
           }
-        : e
+        : t
     ));
 
     // Also update the current question in session pool for immediate UI feedback
@@ -605,20 +1186,27 @@ function App() {
   };
 
   const resetProgress = () => {
-    if (!window.confirm('Reset all progress for this exercise?')) return;
+    if (!window.confirm('Reset all progress for this exercise?') || !selectedTopicId || !selectedExerciseId) return;
 
-    setExercises(exercises.map(e => 
-      e.id === selectedExerciseId
+    updateTopics(topics => topics.map(t => 
+      t.id === selectedTopicId
         ? {
-            ...e,
-            questions: e.questions.map(q => ({
-              ...q,
-              timesAnswered: 0,
-              timesCorrect: 0,
-              lastReviewed: null
-            }))
+            ...t,
+            exercises: t.exercises.map(e => 
+              e.id === selectedExerciseId
+                ? {
+                    ...e,
+                    questions: e.questions.map(q => ({
+                      ...q,
+                      timesAnswered: 0,
+                      timesCorrect: 0,
+                      lastReviewed: null
+                    }))
+                  }
+                : e
+            )
           }
-        : e
+        : t
     ));
   };
 
@@ -676,9 +1264,9 @@ function App() {
       if (timesAnswered < 5) {
         nextMilestone = `${5 - timesAnswered} more attempts needed for mastered`;
       } else {
-        const targetCorrect = Math.ceil(timesAnswered * 0.85);
+        const targetCorrect = Math.ceil(timesAnswered * 0.80);
         const needed = targetCorrect - timesCorrect;
-        nextMilestone = needed > 0 ? `${needed} more correct for mastered` : 'Almost there!';
+        nextMilestone = needed > 0 ? `${needed} more correct for mastered (80% accuracy)` : 'Almost there!';
       }
       reviewStatus = isDue ? 'Due now' : `Review in ${reviewInterval - daysSince} days`;
     } else {
@@ -689,8 +1277,17 @@ function App() {
     return { level, percentage, nextMilestone, reviewStatus, daysSince, isDue };
   };
 
-  const selectedExercise = exercises.find(e => e.id === selectedExerciseId);
+  // Get selected topic and exercise
+  const selectedTopic = getCurrentTopic();
+  const selectedExercise = getCurrentExercise();
   const stats = selectedExercise ? getExerciseStats(selectedExercise) : null;
+
+  // Calculate topic stats
+  const getTopicStats = (topic: Topic) => {
+    const totalQuestions = topic.exercises.reduce((sum, ex) => sum + ex.questions.length, 0);
+    const totalExercises = topic.exercises.length;
+    return { totalQuestions, totalExercises };
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -700,81 +1297,104 @@ function App() {
           <p className="text-indigo-600">Master German grammar with smart spaced repetition</p>
         </header>
 
-        <div className="grid md:grid-cols-4 gap-6">
-          {/* Sidebar */}
-          <div className="md:col-span-1">
+        <div className="grid md:grid-cols-12 gap-6">
+          {/* LEFT SIDEBAR - Topics */}
+          <div className="md:col-span-3">
             <div className="bg-white rounded-lg shadow-lg p-4">
               <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
                 <BookOpen className="w-5 h-5 mr-2" />
-                Exercises
+                Topics
               </h2>
 
-              {/* Create Exercise */}
-              <div className="mb-4">
+              {/* Data Management - Always visible */}
+              <div className="mb-4 pb-4 border-b space-y-2">
+                <button
+                  onClick={exportData}
+                  className="w-full bg-purple-600 text-white px-3 py-2 rounded-md text-sm hover:bg-purple-700 flex items-center justify-center gap-1"
+                  title="Export all app data to JSON file"
+                >
+                  <Download className="w-4 h-4" />
+                  Export All Data
+                </button>
+                <label className="w-full bg-orange-600 text-white px-3 py-2 rounded-md text-sm hover:bg-orange-700 flex items-center justify-center gap-1 cursor-pointer"
+                  title="Import data from JSON file (overwrites all existing data)">
+                  <Upload className="w-4 h-4" />
+                  Import Data
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={importData}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {/* Create Topic */}
+              <div className="mb-4 pb-4 border-b">
                 <input
                   type="text"
-                  placeholder="New exercise name (e.g., telc B1 Dative - Part 1)"
-                  value={newExerciseName}
-                  onChange={(e) => setNewExerciseName(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && createExercise()}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2"
+                  placeholder="New topic (e.g., telc B1 Dative)"
+                  value={newTopicTitle}
+                  onChange={(e) => setNewTopicTitle(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && createTopic()}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2 bg-white text-gray-900"
                 />
                 <textarea
-                  placeholder="Exercise description (optional - will be shown during practice)"
-                  value={newExerciseDescription}
-                  onChange={(e) => setNewExerciseDescription(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2 resize-none"
+                  placeholder="Topic description (optional)"
+                  value={newTopicDescription}
+                  onChange={(e) => setNewTopicDescription(e.target.value)}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2 resize-none bg-white text-gray-900"
                 />
                 <button
-                  onClick={createExercise}
+                  onClick={createTopic}
                   className="w-full bg-indigo-600 text-white px-3 py-2 rounded-md text-sm hover:bg-indigo-700 flex items-center justify-center"
                 >
                   <Plus className="w-4 h-4 mr-1" />
-                  Create Exercise
+                  Create Topic
                 </button>
               </div>
 
-              {/* Exercise List */}
+              {/* Topics List */}
               <div className="space-y-2">
-                {exercises.map(exercise => {
-                  const exerciseStats = getExerciseStats(exercise);
-                  const isEditing = editingExerciseId === exercise.id;
+                {topics.map(topic => {
+                  const topicStats = getTopicStats(topic);
+                  const isEditingTopic = editingTopicId === topic.id;
                   
                   return (
                     <div
-                      key={exercise.id}
+                      key={topic.id}
                       className={`p-3 rounded-lg border-2 transition-all ${
-                        selectedExerciseId === exercise.id
+                        selectedTopicId === topic.id
                           ? 'border-indigo-500 bg-indigo-50'
                           : 'border-gray-200 bg-white hover:border-indigo-300'
                       }`}
                     >
-                      {isEditing ? (
+                      {isEditingTopic ? (
                         <div className="space-y-2">
                           <input
                             type="text"
-                            value={editingName}
-                            onChange={(e) => setEditingName(e.target.value)}
-                            placeholder="Exercise name"
-                            className="w-full px-2 py-1 border rounded text-sm"
+                            value={editingTopicTitle}
+                            onChange={(e) => setEditingTopicTitle(e.target.value)}
+                            placeholder="Topic title"
+                            className="w-full px-2 py-1 border rounded text-sm bg-white text-gray-900"
                             autoFocus
                           />
                           <textarea
-                            value={editingDescription}
-                            onChange={(e) => setEditingDescription(e.target.value)}
-                            placeholder="Exercise description (optional)"
+                            value={editingTopicDescription}
+                            onChange={(e) => setEditingTopicDescription(e.target.value)}
+                            placeholder="Topic description (optional)"
                             rows={2}
-                            className="w-full px-2 py-1 border rounded text-sm resize-none"
+                            className="w-full px-2 py-1 border rounded text-sm resize-none bg-white text-gray-900"
                           />
                           <div className="flex gap-1">
-                            <button onClick={saveExerciseName} className="flex-1 bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700">
+                            <button onClick={saveTopicEdit} className="flex-1 bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700">
                               Save
                             </button>
                             <button onClick={() => {
-                              setEditingExerciseId(null);
-                              setEditingName('');
-                              setEditingDescription('');
+                              setEditingTopicId(null);
+                              setEditingTopicTitle('');
+                              setEditingTopicDescription('');
                             }} className="px-2 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400">
                               Cancel
                             </button>
@@ -785,53 +1405,31 @@ function App() {
                           <div className="flex items-start justify-between mb-2">
                             <button
                               onClick={() => {
-                                setSelectedExerciseId(exercise.id);
-                                setView('add');
+                                setSelectedTopicId(topic.id);
+                                setSelectedExerciseId(null);
+                                setView('list');
                               }}
                               className="flex-1 text-left font-semibold text-gray-800 text-sm hover:text-indigo-600"
                             >
-                              {exercise.name}
+                              {topic.title}
                             </button>
                             <div className="flex gap-1 ml-2">
                               <button
-                                onClick={() => startEditExercise(exercise)}
+                                onClick={() => startEditTopic(topic)}
                                 className="text-gray-500 hover:text-indigo-600"
                               >
                                 <Edit2 className="w-3 h-3" />
                               </button>
                               <button
-                                onClick={() => deleteExercise(exercise.id)}
+                                onClick={() => deleteTopic(topic.id)}
                                 className="text-gray-500 hover:text-red-600"
                               >
                                 <Trash2 className="w-3 h-3" />
                               </button>
                             </div>
                           </div>
-                          <div className="text-xs text-gray-600 mb-1">
-                            {exerciseStats.total} questions
-                          </div>
-                          {exerciseStats.dueCount > 0 && (
-                            <div className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 mb-2 flex items-center">
-                              <Clock className="w-3 h-3 mr-1" />
-                              {exerciseStats.dueCount} due
-                            </div>
-                          )}
-                          <div className="flex gap-1 flex-wrap">
-                            {exerciseStats.mastered > 0 && (
-                              <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700">
-                                {exerciseStats.mastered}✓
-                              </span>
-                            )}
-                            {exerciseStats.middle > 0 && (
-                              <span className="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700">
-                                {exerciseStats.middle}◐
-                              </span>
-                            )}
-                            {exerciseStats.weak > 0 && (
-                              <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700">
-                                {exerciseStats.weak}✗
-                              </span>
-                            )}
+                          <div className="text-xs text-gray-600">
+                            {topicStats.totalExercises} exercises • {topicStats.totalQuestions} questions
                           </div>
                         </>
                       )}
@@ -842,8 +1440,149 @@ function App() {
             </div>
           </div>
 
-          {/* Main Content */}
+          {/* MIDDLE SECTION - Exercises */}
           <div className="md:col-span-3">
+            {selectedTopic ? (
+              <div className="bg-white rounded-lg shadow-lg p-4">
+                <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                  <Target className="w-5 h-5 mr-2" />
+                  Exercises
+                </h2>
+
+                {/* Add Exercises Buttons */}
+                <div className="mb-4 space-y-2 pb-4 border-b">
+                  <button
+                    onClick={() => setShowAddExerciseModal(true)}
+                    className="w-full bg-green-600 text-white px-3 py-2 rounded-md text-sm hover:bg-green-700 flex items-center justify-center"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Single Exercise
+                  </button>
+                  <button
+                    onClick={() => setShowBulkExerciseModal(true)}
+                    className="w-full bg-blue-600 text-white px-3 py-2 rounded-md text-sm hover:bg-blue-700 flex items-center justify-center"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Multiple Exercises
+                  </button>
+                </div>
+
+                {/* Exercises List */}
+                <div className="space-y-2">
+                  {selectedTopic.exercises.map(exercise => {
+                    const exerciseStats = getExerciseStats(exercise);
+                    const isEditing = editingExerciseId === exercise.id;
+                    
+                    return (
+                      <div
+                        key={exercise.id}
+                        className={`p-3 rounded-lg border-2 transition-all ${
+                          selectedExerciseId === exercise.id
+                            ? 'border-indigo-500 bg-indigo-50'
+                            : 'border-gray-200 bg-white hover:border-indigo-300'
+                        }`}
+                      >
+                        {isEditing ? (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                              placeholder="Exercise name"
+                              className="w-full px-2 py-1 border rounded text-sm bg-white text-gray-900"
+                              autoFocus
+                            />
+                            <textarea
+                              value={editingDescription}
+                              onChange={(e) => setEditingDescription(e.target.value)}
+                              placeholder="Exercise description (optional)"
+                              rows={2}
+                              className="w-full px-2 py-1 border rounded text-sm resize-none bg-white text-gray-900"
+                            />
+                            <div className="flex gap-1">
+                              <button onClick={saveExerciseName} className="flex-1 bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700">
+                                Save
+                              </button>
+                              <button onClick={() => {
+                                setEditingExerciseId(null);
+                                setEditingName('');
+                                setEditingDescription('');
+                              }} className="px-2 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400">
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-start justify-between mb-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedExerciseId(exercise.id);
+                                  setView('add');
+                                }}
+                                className="flex-1 text-left font-semibold text-gray-800 text-sm hover:text-indigo-600"
+                              >
+                                {exercise.name}
+                              </button>
+                              <div className="flex gap-1 ml-2">
+                                <button
+                                  onClick={() => startEditExercise(exercise)}
+                                  className="text-gray-500 hover:text-indigo-600"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                </button>
+                                <button
+                                  onClick={() => deleteExercise(exercise.id)}
+                                  className="text-gray-500 hover:text-red-600"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-600 mb-1">
+                              {exerciseStats.total} questions
+                            </div>
+                            {exerciseStats.dueCount > 0 && (
+                              <div className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 mb-2 flex items-center">
+                                <Clock className="w-3 h-3 mr-1" />
+                                {exerciseStats.dueCount} due
+                              </div>
+                            )}
+                            <div className="flex gap-1 flex-wrap">
+                              {exerciseStats.mastered > 0 && (
+                                <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700">
+                                  {exerciseStats.mastered}✓
+                                </span>
+                              )}
+                              {exerciseStats.middle > 0 && (
+                                <span className="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700">
+                                  {exerciseStats.middle}◐
+                                </span>
+                              )}
+                              {exerciseStats.weak > 0 && (
+                                <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700">
+                                  {exerciseStats.weak}✗
+                                </span>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+                <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">No Topic Selected</h3>
+                <p className="text-gray-500">Select or create a topic to see exercises</p>
+              </div>
+            )}
+          </div>
+
+          {/* Main Content */}
+          <div className="md:col-span-6">
             {!selectedExercise ? (
               <div className="bg-white rounded-lg shadow-lg p-8 text-center">
                 <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -879,8 +1618,8 @@ function App() {
                       </button>
                     </div>
                     
-                    {/* Session Size Selector - show in both add view and when ready to practice */}
-                    {(view === 'add' || (view !== 'practice' && view !== 'sessionComplete')) && (
+                    {/* Session Size Selector - only show when not in practice or session complete */}
+                    {view !== 'practice' && view !== 'sessionComplete' && (
                       <div className="flex items-center gap-3 pt-2 border-t">
                         <label className="text-sm font-medium text-gray-700">
                           Session Size:
@@ -888,15 +1627,16 @@ function App() {
                         <select
                           value={sessionSize}
                           onChange={(e) => setSessionSize(Number(e.target.value))}
-                          className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                          className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white text-gray-900"
                         >
                           <option value={5}>5 questions</option>
                           <option value={10}>10 questions</option>
                           <option value={15}>15 questions</option>
                           <option value={20}>20 questions</option>
-                          <option value={25}>25 questions</option>
-                          <option value={30}>30 questions</option>
                         </select>
+                        <span className="text-xs text-gray-500">
+                          (Select before starting practice)
+                        </span>
                       </div>
                     )}
                   </div>
@@ -962,12 +1702,14 @@ function App() {
                       </div>
                     )}
                     {stats.total > 0 && (
-                      <button
-                        onClick={resetProgress}
-                        className="mt-4 w-full bg-red-50 text-red-600 px-4 py-2 rounded-md text-sm hover:bg-red-100"
-                      >
-                        Reset Progress
-                      </button>
+                      <div className="mt-4">
+                        <button
+                          onClick={resetProgress}
+                          className="w-full bg-red-50 text-red-600 px-4 py-2 rounded-md text-sm hover:bg-red-100"
+                        >
+                          Reset Progress
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -984,14 +1726,14 @@ function App() {
                           placeholder="Question (use ___ for blank)"
                           value={singleQuestion.text}
                           onChange={(e) => setSingleQuestion({ ...singleQuestion, text: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
                         />
                         <input
                           type="text"
                           placeholder="Correct answer"
                           value={singleQuestion.answer}
                           onChange={(e) => setSingleQuestion({ ...singleQuestion, answer: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
                         />
                         <button
                           onClick={addSingleQuestion}
@@ -1019,7 +1761,7 @@ function App() {
                         value={bulkText}
                         onChange={(e) => setBulkText(e.target.value)}
                         rows={8}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-md font-mono text-sm"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md font-mono text-sm bg-white text-gray-900"
                       />
                       <button
                         onClick={addBulkQuestions}
@@ -1102,12 +1844,23 @@ function App() {
                 {/* Practice View */}
                 {view === 'practice' && currentQuestion && (
                   <div className="bg-white rounded-lg shadow-lg p-8">
+                    {/* Exercise Title */}
+                    <div className="mb-6">
+                      <h2 className="text-2xl font-bold text-indigo-900 flex items-center">
+                        <Target className="w-6 h-6 mr-2" />
+                        {selectedExercise.name}
+                      </h2>
+                    </div>
+
                     {/* Exercise Description (if exists) */}
                     {selectedExercise.description && (
-                      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h3 className="text-sm font-semibold text-blue-900 mb-2">📖 Exercise Information</h3>
-                        <div className="text-sm text-blue-800 whitespace-pre-wrap">
-                          {selectedExercise.description}
+                      <div className="mb-6 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-l-4 border-indigo-500 rounded-lg shadow-sm">
+                        <div className="flex items-center mb-4">
+                          <BookOpen className="w-5 h-5 text-indigo-600 mr-2" />
+                          <h3 className="text-lg font-bold text-indigo-900">Exercise Information</h3>
+                        </div>
+                        <div className="exercise-markdown text-gray-700">
+                          <ReactMarkdown>{selectedExercise.description}</ReactMarkdown>
                         </div>
                       </div>
                     )}
@@ -1170,7 +1923,7 @@ function App() {
                           onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
                           disabled={feedback !== null}
                           placeholder="Type your answer..."
-                          className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
+                          className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
                           autoFocus
                         />
                       )}
@@ -1185,7 +1938,7 @@ function App() {
                             onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
                             disabled={feedback !== null}
                             placeholder="Type transformed answer..."
-                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
+                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
                             autoFocus
                           />
                         </div>
@@ -1207,7 +1960,7 @@ function App() {
                             placeholder={currentQuestion.type === 'multi-blank' 
                               ? "answer1, answer2, answer3..." 
                               : "word=DAT, word=AKK..."}
-                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
+                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
                             autoFocus
                           />
                         </div>
@@ -1225,7 +1978,7 @@ function App() {
                             disabled={feedback !== null}
                             placeholder="Write your answer here... (2-3 complete sentences)"
                             rows={6}
-                            className="w-full px-6 py-4 border-2 border-indigo-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 font-sans"
+                            className="w-full px-6 py-4 border-2 border-indigo-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 font-sans bg-white text-gray-900"
                             autoFocus
                           />
                           <div className="mt-2 text-sm text-gray-600">
@@ -1258,7 +2011,7 @@ function App() {
                             disabled={feedback !== null}
                             placeholder="Type what you said..."
                             rows={4}
-                            className="w-full px-6 py-4 border-2 border-indigo-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 font-sans"
+                            className="w-full px-6 py-4 border-2 border-indigo-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 font-sans bg-white text-gray-900"
                             autoFocus
                           />
                         </div>
@@ -1277,7 +2030,241 @@ function App() {
                             onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
                             disabled={feedback !== null}
                             placeholder="Type your answer..."
-                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
+                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
+                            autoFocus
+                          />
+                        </div>
+                      )}
+
+                      {/* Error Correction Type */}
+                      {currentQuestion.type === 'error-correction' && (
+                        <div>
+                          <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-4">
+                            <p className="text-sm text-yellow-800">
+                              <strong>🔧 Error Correction:</strong> This sentence has one grammatical error. 
+                              Rewrite the ENTIRE sentence correctly.
+                            </p>
+                          </div>
+                          <div className="text-sm text-gray-600 mb-2">Original sentence with error:</div>
+                          <div className="bg-red-50 p-3 rounded mb-3 text-lg border border-red-200">
+                            {currentQuestion.text}
+                          </div>
+                          <div className="text-sm text-gray-600 mb-2">Type the corrected sentence:</div>
+                          <input
+                            type="text"
+                            value={userAnswer}
+                            onChange={(e) => setUserAnswer(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
+                            disabled={feedback !== null}
+                            placeholder="Rewrite the entire sentence correctly..."
+                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
+                            autoFocus
+                          />
+                        </div>
+                      )}
+
+                      {/* Word Order Type */}
+                      {currentQuestion.type === 'word-order' && (
+                        <div>
+                          <div className="bg-blue-50 border border-blue-300 rounded-lg p-4 mb-4">
+                            <p className="text-sm text-blue-800">
+                              <strong>🔀 Word Order:</strong> Arrange the words to form a correct German sentence.
+                              Remember: Subject-Verb-Time-Manner-Place (TE-KA-MO-LO) or Time-Verb-Subject when time comes first.
+                            </p>
+                          </div>
+                          <div className="text-sm text-gray-600 mb-2">Words to arrange:</div>
+                          <div className="bg-gray-100 p-3 rounded mb-3 text-lg border border-gray-300 font-mono">
+                            {currentQuestion.text}
+                          </div>
+                          <div className="text-sm text-gray-600 mb-2">Type the sentence in correct order:</div>
+                          <input
+                            type="text"
+                            value={userAnswer}
+                            onChange={(e) => setUserAnswer(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
+                            disabled={feedback !== null}
+                            placeholder="Type the complete sentence..."
+                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
+                            autoFocus
+                          />
+                        </div>
+                      )}
+
+                      {/* Multiple Choice Type */}
+                      {currentQuestion.type === 'choice' && currentQuestion.context && (
+                        <div>
+                          <div className="bg-purple-50 border border-purple-300 rounded-lg p-4 mb-4">
+                            <p className="text-sm text-purple-800">
+                              <strong>☑️ Multiple Choice:</strong> Select the correct answer from the options below.
+                            </p>
+                          </div>
+                          <div className="space-y-3">
+                            {currentQuestion.context.split(',').map((option, idx) => {
+                              const optionText = option.trim();
+                              const isSelected = userAnswer === optionText;
+                              const isDisabled = feedback !== null;
+                              
+                              return (
+                                <button
+                                  key={idx}
+                                  onClick={() => !isDisabled && setUserAnswer(optionText)}
+                                  disabled={isDisabled}
+                                  className={`w-full text-left px-6 py-4 rounded-lg border-2 transition-all ${
+                                    isSelected 
+                                      ? 'border-indigo-500 bg-indigo-50 text-indigo-900' 
+                                      : 'border-gray-300 bg-white hover:border-indigo-300 hover:bg-indigo-50'
+                                  } ${isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                                >
+                                  <div className="flex items-center">
+                                    <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
+                                      isSelected ? 'border-indigo-500 bg-indigo-500' : 'border-gray-400'
+                                    }`}>
+                                      {isSelected && <div className="w-2 h-2 rounded-full bg-white"></div>}
+                                    </div>
+                                    <span className="text-lg">{optionText}</span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Matching Exercise Type */}
+                      {currentQuestion.type === 'match' && currentQuestion.context && (
+                        <div>
+                          <div className="bg-green-50 border border-green-300 rounded-lg p-4 mb-4">
+                            <p className="text-sm text-green-800">
+                              <strong>🔗 Matching Exercise:</strong> Match items by typing pairs (e.g., "helfen-der Frau, danken-ihnen")
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                              <div className="text-sm font-semibold text-gray-700 mb-2">Column A:</div>
+                              <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                                {currentQuestion.text.split(',').map((item, idx) => (
+                                  <div key={idx} className="py-1 text-gray-800">{idx + 1}. {item.trim()}</div>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm font-semibold text-gray-700 mb-2">Column B:</div>
+                              <div className="bg-yellow-50 p-4 rounded border border-yellow-200">
+                                {currentQuestion.context.split(',').map((item, idx) => (
+                                  <div key={idx} className="py-1 text-gray-800">• {item.trim()}</div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-600 mb-2">Type your matches (comma-separated pairs):</div>
+                          <input
+                            type="text"
+                            value={userAnswer}
+                            onChange={(e) => setUserAnswer(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
+                            disabled={feedback !== null}
+                            placeholder="item1-match1, item2-match2, item3-match3..."
+                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
+                            autoFocus
+                          />
+                        </div>
+                      )}
+
+                      {/* Sentence Building/Order Type */}
+                      {currentQuestion.type === 'order' && (
+                        <div>
+                          <div className="bg-indigo-50 border border-indigo-300 rounded-lg p-4 mb-4">
+                            <p className="text-sm text-indigo-800">
+                              <strong>🧩 Sentence Building:</strong> Build a correct German sentence from the words below.
+                            </p>
+                          </div>
+                          <div className="text-sm text-gray-600 mb-2">Available words:</div>
+                          <div className="flex flex-wrap gap-2 mb-4 p-4 bg-gray-50 rounded border border-gray-200">
+                            {currentQuestion.text.split(/[/,]/).map((word, idx) => (
+                              <span
+                                key={idx}
+                                className="px-3 py-2 bg-white border-2 border-indigo-300 rounded-lg text-gray-800 font-medium shadow-sm"
+                              >
+                                {word.trim()}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="text-sm text-gray-600 mb-2">Type the complete sentence:</div>
+                          <input
+                            type="text"
+                            value={userAnswer}
+                            onChange={(e) => setUserAnswer(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
+                            disabled={feedback !== null}
+                            placeholder="Type the sentence using all words..."
+                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
+                            autoFocus
+                          />
+                        </div>
+                      )}
+
+                      {/* Cloze Passage Type */}
+                      {currentQuestion.type === 'cloze' && (
+                        <div>
+                          <div className="bg-orange-50 border border-orange-300 rounded-lg p-4 mb-4">
+                            <p className="text-sm text-orange-800">
+                              <strong>📄 Cloze Passage:</strong> Fill in the blanks in the text passage.
+                              Enter answers separated by commas.
+                            </p>
+                          </div>
+                          <div className="bg-white p-4 rounded border-2 border-gray-300 mb-4">
+                            <div className="text-lg leading-relaxed whitespace-pre-wrap">
+                              {currentQuestion.text.split(/\{blank\d*\}/).map((part, idx, arr) => (
+                                <span key={idx}>
+                                  {part}
+                                  {idx < arr.length - 1 && (
+                                    <span className="inline-block mx-1 px-3 py-1 bg-yellow-100 border-2 border-yellow-400 rounded">
+                                      <span className="text-yellow-700 font-semibold">____{idx + 1}____</span>
+                                    </span>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-600 mb-2">
+                            Fill in the blanks (comma-separated, in order):
+                          </div>
+                          <input
+                            type="text"
+                            value={userAnswer}
+                            onChange={(e) => setUserAnswer(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
+                            disabled={feedback !== null}
+                            placeholder="answer1, answer2, answer3..."
+                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
+                            autoFocus
+                          />
+                        </div>
+                      )}
+
+                      {/* Dialogue Practice Type */}
+                      {currentQuestion.type === 'dialogue' && currentQuestion.context && (
+                        <div>
+                          <div className="bg-pink-50 border border-pink-300 rounded-lg p-4 mb-4">
+                            <p className="text-sm text-pink-800">
+                              <strong>💬 Dialogue Practice:</strong> Respond naturally to the conversation.
+                              Compare your answer with the sample response.
+                            </p>
+                          </div>
+                          <div className="bg-gray-100 p-4 rounded mb-4 border border-gray-300">
+                            <div className="text-sm text-gray-600 mb-2">Situation:</div>
+                            <div className="text-gray-800 mb-3">{currentQuestion.context}</div>
+                            <div className="text-sm text-gray-600 mb-2">Your turn:</div>
+                            <div className="text-indigo-700 font-medium">{currentQuestion.text}</div>
+                          </div>
+                          <div className="text-sm text-gray-600 mb-2">Your response:</div>
+                          <textarea
+                            value={userAnswer}
+                            onChange={(e) => setUserAnswer(e.target.value)}
+                            disabled={feedback !== null}
+                            placeholder="Type your natural response..."
+                            rows={4}
+                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
                             autoFocus
                           />
                         </div>
@@ -1288,31 +2275,31 @@ function App() {
                     {feedback && (
                       <div className={`p-6 rounded-lg mb-6 ${
                         feedback.correct ? 'bg-green-50 border-2 border-green-500' : 
-                        (currentQuestion.type === 'writing' || currentQuestion.type === 'speaking') 
+                        (currentQuestion.type === 'writing' || currentQuestion.type === 'speaking' || currentQuestion.type === 'dialogue') 
                           ? 'bg-blue-50 border-2 border-blue-500' 
                           : 'bg-red-50 border-2 border-red-500'
                       }`}>
                         <div className="flex items-center mb-2">
                           {feedback.correct ? (
                             <Check className="w-6 h-6 text-green-600 mr-2" />
-                          ) : (currentQuestion.type === 'writing' || currentQuestion.type === 'speaking') ? (
+                          ) : (currentQuestion.type === 'writing' || currentQuestion.type === 'speaking' || currentQuestion.type === 'dialogue') ? (
                             <BookOpen className="w-6 h-6 text-blue-600 mr-2" />
                           ) : (
                             <X className="w-6 h-6 text-red-600 mr-2" />
                           )}
                           <span className={`text-xl font-bold ${
                             feedback.correct ? 'text-green-700' : 
-                            (currentQuestion.type === 'writing' || currentQuestion.type === 'speaking')
+                            (currentQuestion.type === 'writing' || currentQuestion.type === 'speaking' || currentQuestion.type === 'dialogue')
                               ? 'text-blue-700' 
                               : 'text-red-700'
                           }`}>
                             {feedback.correct ? 'Correct!' : 
-                             (currentQuestion.type === 'writing' || currentQuestion.type === 'speaking')
+                             (currentQuestion.type === 'writing' || currentQuestion.type === 'speaking' || currentQuestion.type === 'dialogue')
                                ? 'Sample Answer' 
                                : 'Incorrect'}
                           </span>
                         </div>
-                        {(currentQuestion.type === 'writing' || currentQuestion.type === 'speaking') ? (
+                        {(currentQuestion.type === 'writing' || currentQuestion.type === 'speaking' || currentQuestion.type === 'dialogue') ? (
                           <div>
                             <p className="text-blue-800 font-medium mb-2">Compare your answer with this sample:</p>
                             <p className="text-blue-900 bg-white p-4 rounded border border-blue-200 whitespace-pre-wrap">
@@ -1471,6 +2458,131 @@ function App() {
             )}
           </div>
         </div>
+
+        {/* Add Single Exercise Modal */}
+        {showAddExerciseModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">Add Single Exercise</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Paste your exercise in the format below. The parser will automatically extract the title, description, and questions.
+                </p>
+                
+                <div className="bg-gray-50 p-4 rounded-lg mb-4 text-xs font-mono">
+                  <div className="text-gray-700 mb-2"><strong>Format Example:</strong></div>
+                  <pre className="whitespace-pre-wrap text-gray-600">
+{`title: Transform to Plural Dative
+
+description ->
+Transform singular nouns with articles to plural dative form.
+
+**The -n Rule:**
+- In dative plural, add **-n** to the noun
+- Article: Always **den**
+
+questions ->
+das Kind >> den Kindern
+die Studentin >> den Studentinnen
+der Nachbar >> den Nachbarn`}
+                  </pre>
+                </div>
+
+                <textarea
+                  value={singleExerciseText}
+                  onChange={(e) => setSingleExerciseText(e.target.value)}
+                  placeholder="Paste exercise text here..."
+                  rows={12}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md font-mono text-sm bg-white text-gray-900 mb-4"
+                />
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowAddExerciseModal(false);
+                      setSingleExerciseText('');
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={addSingleExerciseFromText}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                  >
+                    Parse & Add Exercise
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Bulk Exercises Modal */}
+        {showBulkExerciseModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">Add Multiple Exercises</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Paste multiple exercises using the <code className="bg-gray-200 px-2 py-1 rounded">---EXERCISE---</code> delimiter format.
+                </p>
+                
+                <div className="bg-gray-50 p-4 rounded-lg mb-4 text-xs font-mono">
+                  <div className="text-gray-700 mb-2"><strong>Format Example:</strong></div>
+                  <pre className="whitespace-pre-wrap text-gray-600">
+{`---EXERCISE---
+title: Exercise 1 Title
+description: |
+  Multi-line description here.
+  Supports **markdown** formatting.
+
+questions:
+Question 1 | Answer 1
+Question 2 | Answer 2
+---END---
+
+---EXERCISE---
+title: Exercise 2 Title
+description: |
+  Another exercise description.
+
+questions:
+das Kind >> den Kindern
+die Frau >> den Frauen
+---END---`}
+                  </pre>
+                </div>
+
+                <textarea
+                  value={bulkExercisesText}
+                  onChange={(e) => setBulkExercisesText(e.target.value)}
+                  placeholder="Paste multiple exercises here..."
+                  rows={16}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md font-mono text-sm bg-white text-gray-900 mb-4"
+                />
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowBulkExerciseModal(false);
+                      setBulkExercisesText('');
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={addBulkExercisesFromText}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Parse & Add All Exercises
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -25,13 +25,20 @@ A smart German grammar practice application built with React, TypeScript, Vite, 
 
 ## 🆕 What's New
 
-**Self-Assessment Feature**: Practice writing and speaking with sample answer comparison!
+**Version 2.0 - Topics Update** 🎉:
+- **Hierarchical Structure**: Organize exercises into topics (📚 Topics → 📖 Exercises → ❓ Questions)
+- **Bulk Exercise Import**: Paste multiple complete exercises at once
+- **Enhanced UI**: Three-column layout (Topics | Exercises | Practice)
+- **Smart Parsers**: Automatic extraction of titles, descriptions, and questions
+- **Backward Compatibility**: Existing data automatically migrates to "My Exercises" topic
 
+**Self-Assessment Feature**:
 - **Writing Practice**: Get a large text area, write your response, compare with sample answer, self-assess
 - **Speaking Practice**: Instructions to speak out loud, type what you said, compare with sample
 - **Reading Comprehension**: Answer questions based on text (auto-graded)
 
-See [NEW_FEATURES.md](NEW_FEATURES.md) for detailed guide!
+📚 **See [TOPICS_UPGRADE_GUIDE.md](TOPICS_UPGRADE_GUIDE.md) for the new Topics feature!**  
+📝 **See [NEW_FEATURES.md](NEW_FEATURES.md) for practice types guide!**
 
 ## How It Works
 
