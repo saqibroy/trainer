@@ -322,6 +322,9 @@ function App() {
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
   const [view, setView] = useState<'list' | 'add' | 'practice' | 'sessionComplete'>('list');
   
+  // Mobile navigation state
+  const [mobileView, setMobileView] = useState<'topics' | 'exercises' | 'content'>('topics');
+  
   // Topic management states
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [newTopicDescription, setNewTopicDescription] = useState('');
@@ -419,6 +422,7 @@ function App() {
     setNewTopicTitle('');
     setNewTopicDescription('');
     setSelectedTopicId(newTopic.id);
+    setMobileView('exercises'); // Auto-navigate on mobile
   };
 
   const deleteTopic = (topicId: string) => {
@@ -1210,6 +1214,21 @@ function App() {
     ));
   };
 
+  // Get unique question types from an exercise
+  const getExerciseQuestionTypes = (exercise: Exercise) => {
+    if (!exercise || exercise.questions.length === 0) return [];
+    
+    const typeSet = new Set<Question['type']>();
+    exercise.questions.forEach(q => typeSet.add(q.type));
+    
+    const types = Array.from(typeSet)
+      .map(type => QUESTION_TYPE_INFO[type])
+      .filter(info => info !== undefined);
+    
+    console.log('Exercise:', exercise.name, 'Types:', types); // Debug
+    return types;
+  };
+
   const getExerciseStats = (exercise: Exercise) => {
     if (!exercise || exercise.questions.length === 0) {
       return { total: 0, mastered: 0, middle: 0, weak: 0, new: 0, correctRate: 0, dueCount: 0 };
@@ -1291,16 +1310,60 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <header className="mb-8">
-          <h1 className="text-4xl font-bold text-indigo-900 mb-2">German Practice Trainer</h1>
-          <p className="text-indigo-600">Master German grammar with smart spaced repetition</p>
+      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 max-w-7xl">
+        {/* Header - Responsive */}
+        <header className="mb-4 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-indigo-900 mb-1 sm:mb-2">
+            German B1 Trainer
+          </h1>
+          <p className="text-xs sm:text-sm md:text-base text-indigo-600">
+            Master German with spaced repetition
+          </p>
         </header>
 
-        <div className="grid md:grid-cols-12 gap-6">
-          {/* LEFT SIDEBAR - Topics */}
-          <div className="md:col-span-3">
-            <div className="bg-white rounded-lg shadow-lg p-4">
+        {/* Mobile Navigation Tabs */}
+        <div className="md:hidden mb-3">
+          <div className="bg-white rounded-lg shadow p-1 flex gap-1">
+            <button
+              onClick={() => setMobileView('topics')}
+              className={`flex-1 py-2.5 px-2 rounded text-xs font-medium transition-colors ${
+                mobileView === 'topics'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              📚 Topics
+            </button>
+            <button
+              onClick={() => setMobileView('exercises')}
+              className={`flex-1 py-2.5 px-2 rounded text-xs font-medium transition-colors ${
+                mobileView === 'exercises'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+              disabled={!selectedTopicId}
+            >
+              🎯 Exercises
+            </button>
+            <button
+              onClick={() => setMobileView('content')}
+              className={`flex-1 py-2.5 px-2 rounded text-xs font-medium transition-colors ${
+                mobileView === 'content'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+              disabled={!selectedExerciseId}
+            >
+              ✏️ Practice
+            </button>
+          </div>
+        </div>
+
+        {/* Grid Layout - Mobile shows one column, Desktop shows all three */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-6">
+          {/* LEFT SIDEBAR - Topics (Hidden on mobile unless active) */}
+          <div className={`md:col-span-3 ${mobileView !== 'topics' ? 'hidden md:block' : 'block'}`}>
+            <div className="bg-white rounded-lg shadow-lg p-3 sm:p-4">
               <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
                 <BookOpen className="w-5 h-5 mr-2" />
                 Topics
@@ -1408,6 +1471,7 @@ function App() {
                                 setSelectedTopicId(topic.id);
                                 setSelectedExerciseId(null);
                                 setView('list');
+                                setMobileView('exercises'); // Auto-navigate on mobile
                               }}
                               className="flex-1 text-left font-semibold text-gray-800 text-sm hover:text-indigo-600"
                             >
@@ -1440,12 +1504,12 @@ function App() {
             </div>
           </div>
 
-          {/* MIDDLE SECTION - Exercises */}
-          <div className="md:col-span-3">
+          {/* MIDDLE SECTION - Exercises (Hidden on mobile unless active) */}
+          <div className={`md:col-span-3 ${mobileView !== 'exercises' ? 'hidden md:block' : 'block'}`}>
             {selectedTopic ? (
-              <div className="bg-white rounded-lg shadow-lg p-4">
-                <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                  <Target className="w-5 h-5 mr-2" />
+              <div className="bg-white rounded-lg shadow-lg p-3 sm:p-4">
+                <h2 className="text-base sm:text-lg font-bold text-gray-800 mb-3 sm:mb-4 flex items-center">
+                  <Target className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                   Exercises
                 </h2>
 
@@ -1471,19 +1535,27 @@ function App() {
                 <div className="space-y-2">
                   {selectedTopic.exercises.map(exercise => {
                     const exerciseStats = getExerciseStats(exercise);
+                    const questionTypes = getExerciseQuestionTypes(exercise);
                     const isEditing = editingExerciseId === exercise.id;
                     
                     return (
                       <div
                         key={exercise.id}
-                        className={`p-3 rounded-lg border-2 transition-all ${
+                        className={`p-3 sm:p-4 rounded-lg border-2 transition-all cursor-pointer ${
                           selectedExerciseId === exercise.id
                             ? 'border-indigo-500 bg-indigo-50'
                             : 'border-gray-200 bg-white hover:border-indigo-300'
                         }`}
+                        onClick={() => {
+                          if (!isEditing) {
+                            setSelectedExerciseId(exercise.id);
+                            setView('add');
+                            setMobileView('content'); // Auto-navigate on mobile
+                          }
+                        }}
                       >
                         {isEditing ? (
-                          <div className="space-y-2">
+                          <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                             <input
                               type="text"
                               value={editingName}
@@ -1515,37 +1587,48 @@ function App() {
                         ) : (
                           <>
                             <div className="flex items-start justify-between mb-2">
-                              <button
-                                onClick={() => {
-                                  setSelectedExerciseId(exercise.id);
-                                  setView('add');
-                                }}
-                                className="flex-1 text-left font-semibold text-gray-800 text-sm hover:text-indigo-600"
-                              >
+                              <div className="flex-1 font-semibold text-gray-800 text-sm sm:text-base">
                                 {exercise.name}
-                              </button>
-                              <div className="flex gap-1 ml-2">
+                              </div>
+                              <div className="flex gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
                                 <button
                                   onClick={() => startEditExercise(exercise)}
-                                  className="text-gray-500 hover:text-indigo-600"
+                                  className="text-gray-500 hover:text-indigo-600 p-1"
                                 >
-                                  <Edit2 className="w-3 h-3" />
+                                  <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                 </button>
                                 <button
                                   onClick={() => deleteExercise(exercise.id)}
-                                  className="text-gray-500 hover:text-red-600"
+                                  className="text-gray-500 hover:text-red-600 p-1"
                                 >
-                                  <Trash2 className="w-3 h-3" />
+                                  <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                 </button>
                               </div>
                             </div>
-                            <div className="text-xs text-gray-600 mb-1">
+                            
+                            {/* Question Types Badges - More prominent */}
+                            {questionTypes && questionTypes.length > 0 && (
+                              <div className="mb-2 flex flex-wrap gap-1.5">
+                                {questionTypes.map((typeInfo, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-flex items-center text-xs px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 font-medium border border-indigo-200"
+                                    title={typeInfo.description}
+                                  >
+                                    <span className="mr-1">{typeInfo.icon}</span>
+                                    <span>{typeInfo.label}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            
+                            <div className="text-xs sm:text-sm text-gray-600 mb-2">
                               {exerciseStats.total} questions
                             </div>
                             {exerciseStats.dueCount > 0 && (
                               <div className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 mb-2 flex items-center">
                                 <Clock className="w-3 h-3 mr-1" />
-                                {exerciseStats.dueCount} due
+                                {exerciseStats.dueCount} due for review
                               </div>
                             )}
                             <div className="flex gap-1 flex-wrap">
@@ -1581,8 +1664,8 @@ function App() {
             )}
           </div>
 
-          {/* Main Content */}
-          <div className="md:col-span-6">
+          {/* Main Content (Hidden on mobile unless active) */}
+          <div className={`md:col-span-6 ${mobileView !== 'content' ? 'hidden md:block' : 'block'}`}>
             {!selectedExercise ? (
               <div className="bg-white rounded-lg shadow-lg p-8 text-center">
                 <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
