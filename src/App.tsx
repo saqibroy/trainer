@@ -34,6 +34,15 @@ interface Topic {
   exercises: Exercise[];
 }
 
+// Vocabulary interface
+interface VocabularyItem {
+  id: string;
+  word: string;
+  forms: string[];
+  meaning: string;
+  createdAt: string;
+}
+
 // Parsed exercise structure from bulk import
 interface ParsedExercise {
   title: string;
@@ -354,6 +363,17 @@ function App() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [sessionStats, setSessionStats] = useState({ correct: 0, total: 0 });
 
+  // Vocabulary states
+  const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
+  const [selectedWord, setSelectedWord] = useState<VocabularyItem | null>(null);
+  const [showVocabModal, setShowVocabModal] = useState(false);
+  const [showAddVocabModal, setShowAddVocabModal] = useState(false);
+  const [showBulkVocabModal, setShowBulkVocabModal] = useState(false);
+  const [singleVocabWord, setSingleVocabWord] = useState('');
+  const [singleVocabForms, setSingleVocabForms] = useState('');
+  const [singleVocabMeaning, setSingleVocabMeaning] = useState('');
+  const [bulkVocabText, setBulkVocabText] = useState('');
+
   // Load data from localStorage with migration support
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -373,6 +393,11 @@ function App() {
             setSelectedTopicId(migratedTopics[0].id);
           }
         }
+        
+        // Load vocabulary
+        if (data.vocabulary) {
+          setVocabulary(data.vocabulary);
+        }
       } catch (e) {
         console.error('Failed to parse stored data');
       }
@@ -381,10 +406,10 @@ function App() {
 
   // Save to localStorage
   useEffect(() => {
-    if (topics.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ topics }));
+    if (topics.length > 0 || vocabulary.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ topics, vocabulary }));
     }
-  }, [topics]);
+  }, [topics, vocabulary]);
 
   // ========== HELPER FUNCTIONS ==========
   
@@ -937,27 +962,20 @@ function App() {
   const createSessionPool = (questions: Question[], size: number): Question[] => {
     // First, filter questions that are due for review based on their last review time
     const dueQuestions = questions.filter(q => isDueForReview(q.timesAnswered, q.timesCorrect, q.lastReviewed));
-    const notDueQuestions = questions.filter(q => !isDueForReview(q.timesAnswered, q.timesCorrect, q.lastReviewed));
     
-    // Group due questions by mastery level
+    // Group all questions by mastery level
+    const newQ = dueQuestions.filter(q => getMasteryLevel(q.timesAnswered, q.timesCorrect) === 'new');
     const weak = dueQuestions.filter(q => getMasteryLevel(q.timesAnswered, q.timesCorrect) === 'weak');
     const middle = dueQuestions.filter(q => getMasteryLevel(q.timesAnswered, q.timesCorrect) === 'middle');
-    const newQ = dueQuestions.filter(q => getMasteryLevel(q.timesAnswered, q.timesCorrect) === 'new');
     const mastered = dueQuestions.filter(q => getMasteryLevel(q.timesAnswered, q.timesCorrect) === 'mastered');
 
     const pool: Question[] = [];
     const usedIds = new Set<string>();
 
-    // Calculate distribution based on SRS principles
-    const weakTarget = Math.floor(size * 0.5); // 50%
-    const middleTarget = Math.floor(size * 0.3); // 30%
-    const newTarget = Math.floor(size * 0.15); // 15%
-    const masteredTarget = size - weakTarget - middleTarget - newTarget; // 5%
-
     // Helper function to add questions with random selection
-    const addFromCategory = (category: Question[], target: number): number => {
+    const addFromCategory = (category: Question[], maxCount: number): number => {
       const available = category.filter(q => !usedIds.has(q.id));
-      const toAdd = Math.min(target, available.length);
+      const toAdd = Math.min(maxCount, available.length);
       
       for (let i = 0; i < toAdd; i++) {
         if (available.length === 0) break;
@@ -971,40 +989,148 @@ function App() {
       return toAdd;
     };
 
-    // Add questions in priority order (only from due questions)
-    let added = 0;
-    added += addFromCategory(weak, weakTarget);
-    added += addFromCategory(middle, middleTarget);
-    added += addFromCategory(newQ, newTarget);
-    added += addFromCategory(mastered, masteredTarget);
-
-    // If we don't have enough due questions, add some not-due questions to fill the session
-    if (added < size) {
-      const remainingWeak = notDueQuestions.filter(q => getMasteryLevel(q.timesAnswered, q.timesCorrect) === 'weak' && !usedIds.has(q.id));
-      const remainingMiddle = notDueQuestions.filter(q => getMasteryLevel(q.timesAnswered, q.timesCorrect) === 'middle' && !usedIds.has(q.id));
-      const remainingNew = notDueQuestions.filter(q => getMasteryLevel(q.timesAnswered, q.timesCorrect) === 'new' && !usedIds.has(q.id));
-      const remainingMastered = notDueQuestions.filter(q => getMasteryLevel(q.timesAnswered, q.timesCorrect) === 'mastered' && !usedIds.has(q.id));
-      
-      const needed = size - added;
-      added += addFromCategory(remainingWeak, needed);
-      if (added < size) added += addFromCategory(remainingMiddle, size - added);
-      if (added < size) added += addFromCategory(remainingNew, size - added);
-      if (added < size) added += addFromCategory(remainingMastered, size - added);
+    // Priority-based selection: New > Weak > Learning > Mastered
+    // Add questions in priority order, filling up to the session size
+    let remaining = size;
+    
+    // Priority 1: New questions (highest priority - all new questions should appear first)
+    if (remaining > 0 && newQ.length > 0) {
+      const added = addFromCategory(newQ, remaining);
+      remaining -= added;
+    }
+    
+    // Priority 2: Weak questions
+    if (remaining > 0 && weak.length > 0) {
+      const added = addFromCategory(weak, remaining);
+      remaining -= added;
+    }
+    
+    // Priority 3: Learning (middle) questions
+    if (remaining > 0 && middle.length > 0) {
+      const added = addFromCategory(middle, remaining);
+      remaining -= added;
+    }
+    
+    // Priority 4: Mastered questions (only if due for review)
+    if (remaining > 0 && mastered.length > 0) {
+      const added = addFromCategory(mastered, remaining);
+      remaining -= added;
     }
 
-    // Final safety check: if we still don't have enough, just add any remaining questions
-    if (pool.length < size) {
-      const allRemaining = questions.filter(q => !usedIds.has(q.id));
-      const needed = size - pool.length;
-      for (let i = 0; i < Math.min(needed, allRemaining.length); i++) {
-        const randomIndex = Math.floor(Math.random() * allRemaining.length);
-        pool.push(allRemaining[randomIndex]);
-        allRemaining.splice(randomIndex, 1);
-      }
-    }
-
-    // Shuffle the pool to randomize order
+    // Shuffle the pool to randomize order within the session
     return pool.sort(() => Math.random() - 0.5);
+  };
+
+  // ========== VOCABULARY CRUD FUNCTIONS ==========
+  
+  const addSingleVocab = () => {
+    if (!singleVocabWord.trim() || !singleVocabMeaning.trim()) {
+      alert('Please provide at least word and meaning');
+      return;
+    }
+    
+    const forms = singleVocabForms
+      .split(',')
+      .map(f => f.trim())
+      .filter(f => f);
+    
+    const newVocab: VocabularyItem = {
+      id: `vocab-${Date.now()}`,
+      word: singleVocabWord.trim(),
+      forms: forms.length > 0 ? forms : [singleVocabWord.trim()],
+      meaning: singleVocabMeaning.trim(),
+      createdAt: new Date().toISOString()
+    };
+    
+    setVocabulary([...vocabulary, newVocab]);
+    setSingleVocabWord('');
+    setSingleVocabForms('');
+    setSingleVocabMeaning('');
+    setShowAddVocabModal(false);
+  };
+
+  const addBulkVocab = () => {
+    if (!bulkVocabText.trim()) return;
+    
+    try {
+      const parsed = JSON.parse(bulkVocabText);
+      
+      if (parsed.vocabulary && Array.isArray(parsed.vocabulary)) {
+        const newVocab: VocabularyItem[] = parsed.vocabulary.map((item: any, index: number) => ({
+          id: `vocab-${Date.now()}-${index}`,
+          word: item.word,
+          forms: item.forms || [item.word],
+          meaning: item.meaning,
+          createdAt: new Date().toISOString()
+        }));
+        
+        setVocabulary([...vocabulary, ...newVocab]);
+        setBulkVocabText('');
+        setShowBulkVocabModal(false);
+        alert(`Successfully imported ${newVocab.length} vocabulary words!`);
+      } else {
+        alert('Invalid format. Please provide JSON with "vocabulary" array.');
+      }
+    } catch (e) {
+      alert('Invalid JSON format. Please check your input.');
+    }
+  };
+
+  const deleteVocab = (vocabId: string) => {
+    if (window.confirm('Delete this vocabulary word?')) {
+      setVocabulary(vocabulary.filter(v => v.id !== vocabId));
+    }
+  };
+
+  // ========== VOCABULARY HIGHLIGHTING FUNCTIONS ==========
+  
+  const highlightVocabulary = (text: string, onWordClick: (vocab: VocabularyItem) => void) => {
+    if (!text || vocabulary.length === 0) {
+      return <span>{text}</span>;
+    }
+
+    // Create a map of all forms to their vocabulary items
+    const formToVocab = new Map<string, VocabularyItem>();
+    vocabulary.forEach(vocab => {
+      vocab.forms.forEach(form => {
+        const normalizedForm = form.toLowerCase().replace(/^(der|die|das|den|dem|des|ein|eine|einem|einen|einer)\s+/, '');
+        formToVocab.set(normalizedForm, vocab);
+      });
+    });
+
+    // Split text into words while preserving punctuation and whitespace
+    const tokens = text.split(/(\s+|[.,!?;:(){}[\]"'])/);
+    
+    return (
+      <span>
+        {tokens.map((token, idx) => {
+          if (!token.trim()) return token; // Whitespace/punctuation
+          
+          const normalizedToken = token.toLowerCase().replace(/[.,!?;:(){}[\]"']/g, '');
+          const vocab = formToVocab.get(normalizedToken);
+          
+          if (vocab) {
+            return (
+              <span
+                key={idx}
+                onClick={() => onWordClick(vocab)}
+                className="underline decoration-2 decoration-yellow-400 bg-yellow-50 cursor-pointer hover:bg-yellow-100 transition-colors rounded px-0.5"
+                title={`Click to see meaning: ${vocab.meaning}`}
+              >
+                {token}
+              </span>
+            );
+          }
+          
+          return <span key={idx}>{token}</span>;
+        })}
+      </span>
+    );
+  };
+
+  const handleWordClick = (vocab: VocabularyItem) => {
+    setSelectedWord(vocab);
+    setShowVocabModal(true);
   };
 
   const startPractice = () => {
@@ -1390,6 +1516,45 @@ function App() {
                     className="hidden"
                   />
                 </label>
+              </div>
+
+              {/* Vocabulary Management */}
+              <div className="mb-4 pb-4 border-b">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">📚 Vocabulary ({vocabulary.length})</h3>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setShowAddVocabModal(true)}
+                    className="w-full bg-teal-600 text-white px-3 py-2 rounded-md text-sm hover:bg-teal-700 flex items-center justify-center"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Word
+                  </button>
+                  <button
+                    onClick={() => setShowBulkVocabModal(true)}
+                    className="w-full bg-cyan-600 text-white px-3 py-2 rounded-md text-sm hover:bg-cyan-700 flex items-center justify-center"
+                  >
+                    <Upload className="w-4 h-4 mr-1" />
+                    Bulk Import
+                  </button>
+                  {vocabulary.length > 0 && (
+                    <div className="max-h-32 overflow-y-auto bg-gray-50 rounded p-2 space-y-1">
+                      {vocabulary.slice(0, 5).map(vocab => (
+                        <div key={vocab.id} className="flex items-center justify-between text-xs">
+                          <span className="text-gray-700 truncate flex-1">{vocab.word}</span>
+                          <button
+                            onClick={() => deleteVocab(vocab.id)}
+                            className="text-red-500 hover:text-red-700 ml-2"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      {vocabulary.length > 5 && (
+                        <p className="text-xs text-gray-500 italic">+{vocabulary.length - 5} more...</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Create Topic */}
@@ -1925,64 +2090,49 @@ function App() {
                 )}
 
                 {/* Practice View */}
-                {view === 'practice' && currentQuestion && (
+                {view === 'practice' && currentQuestion && selectedExercise && (
                   <div className="bg-white rounded-lg shadow-lg p-8">
-                    {/* Exercise Title */}
-                    <div className="mb-6">
-                      <h2 className="text-2xl font-bold text-indigo-900 flex items-center">
-                        <Target className="w-6 h-6 mr-2" />
-                        {selectedExercise.name}
-                      </h2>
-                    </div>
-
-                    {/* Exercise Description (if exists) */}
+                    {/* Exercise Description (if exists) - Shown at the very top */}
                     {selectedExercise.description && (
-                      <div className="mb-6 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-l-4 border-indigo-500 rounded-lg shadow-sm">
-                        <div className="flex items-center mb-4">
+                      <div className="mb-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-l-4 border-indigo-500 rounded-lg shadow-sm">
+                        <div className="flex items-center mb-3">
                           <BookOpen className="w-5 h-5 text-indigo-600 mr-2" />
-                          <h3 className="text-lg font-bold text-indigo-900">Exercise Information</h3>
+                          <h3 className="text-lg font-bold text-indigo-900">{selectedExercise.name}</h3>
                         </div>
-                        <div className="exercise-markdown text-gray-700">
+                        <div className="exercise-markdown text-gray-700 leading-relaxed">
                           <ReactMarkdown>{selectedExercise.description}</ReactMarkdown>
                         </div>
                       </div>
                     )}
 
-                    {/* Question Type Badge */}
-                    <div className="mb-4">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-indigo-100 text-indigo-700">
-                        <span className="mr-1">{QUESTION_TYPE_INFO[currentQuestion.type].icon}</span>
-                        {QUESTION_TYPE_INFO[currentQuestion.type].label}
-                      </span>
-                    </div>
-
-                    {/* Session Progress */}
-                    <div className="mb-6 flex items-center justify-between">
-                      <div>
-                        <span className={`inline-block px-3 py-1 rounded text-sm ${getMasteryColor(
-                          getMasteryLevel(currentQuestion.timesAnswered, currentQuestion.timesCorrect)
-                        )}`}>
-                          {getMasteryLabel(getMasteryLevel(currentQuestion.timesAnswered, currentQuestion.timesCorrect))}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm text-gray-600">Session Progress</div>
-                        <div className="text-lg font-bold text-indigo-600">
-                          Question {currentQuestionIndex + 1}/{sessionPool.length}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          Score: {sessionStats.correct}/{sessionStats.total}
-                          {sessionStats.total > 0 && (
-                            <span className="ml-1">
-                              ({Math.round((sessionStats.correct / sessionStats.total) * 100)}%)
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
+                    {/* Session Progress Bar */}
                     <div className="mb-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-block px-3 py-1 rounded text-sm ${getMasteryColor(
+                            getMasteryLevel(currentQuestion.timesAnswered, currentQuestion.timesCorrect)
+                          )}`}>
+                            {getMasteryLabel(getMasteryLevel(currentQuestion.timesAnswered, currentQuestion.timesCorrect))}
+                          </span>
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-indigo-100 text-indigo-700">
+                            <span className="mr-1">{QUESTION_TYPE_INFO[currentQuestion.type].icon}</span>
+                            {QUESTION_TYPE_INFO[currentQuestion.type].label}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-medium text-gray-700">
+                            Question {currentQuestionIndex + 1}/{sessionPool.length}
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            Score: {sessionStats.correct}/{sessionStats.total}
+                            {sessionStats.total > 0 && (
+                              <span className="ml-1">
+                                ({Math.round((sessionStats.correct / sessionStats.total) * 100)}%)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-indigo-600 h-2 rounded-full transition-all"
@@ -1991,29 +2141,43 @@ function App() {
                       </div>
                     </div>
 
-                    {/* Question Content */}
-                    <div className="mb-8">
-                      <h3 className="text-2xl font-bold text-gray-800 mb-6">
-                        {currentQuestion.text}
-                      </h3>
+                    {/* Question Statement - Clearly visible and prominent */}
+                    {/* Only show for types where question text is the main prompt, not part of the interface */}
+                    {!['error-correction', 'word-order', 'choice', 'match', 'order', 'cloze', 'dialogue'].includes(currentQuestion.type) && (
+                      <div className="mb-8 p-6 bg-white border-2 border-indigo-200 rounded-lg shadow-sm">
+                        <div className="flex items-start mb-2">
+                          <Target className="w-6 h-6 text-indigo-600 mr-3 mt-1 flex-shrink-0" />
+                          <div className="flex-1">
+                            <h3 className="text-2xl font-bold text-gray-900 leading-relaxed">
+                              {highlightVocabulary(currentQuestion.text, handleWordClick)}
+                            </h3>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
+                    {/* Answer Input Area */}
+                    <div className="mb-8">
                       {/* Different input types based on question type */}
                       {currentQuestion.type === 'fill-blank' && (
-                        <input
-                          type="text"
-                          value={userAnswer}
-                          onChange={(e) => setUserAnswer(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
-                          disabled={feedback !== null}
-                          placeholder="Type your answer..."
-                          className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
-                          autoFocus
-                        />
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Your Answer:</label>
+                          <input
+                            type="text"
+                            value={userAnswer}
+                            onChange={(e) => setUserAnswer(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
+                            disabled={feedback !== null}
+                            placeholder="Type your answer..."
+                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
+                            autoFocus
+                          />
+                        </div>
                       )}
 
                       {currentQuestion.type === 'transform' && (
                         <div>
-                          <div className="text-sm text-gray-600 mb-2">Transform the word/phrase:</div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Transform the word/phrase:</label>
                           <input
                             type="text"
                             value={userAnswer}
@@ -2029,11 +2193,11 @@ function App() {
 
                       {(currentQuestion.type === 'multi-blank' || currentQuestion.type === 'identify') && (
                         <div>
-                          <div className="text-sm text-gray-600 mb-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
                             {currentQuestion.type === 'multi-blank' 
                               ? 'Enter answers separated by commas (,)' 
                               : 'Label each part (e.g., word1=DAT, word2=AKK)'}
-                          </div>
+                          </label>
                           <input
                             type="text"
                             value={userAnswer}
@@ -2052,9 +2216,12 @@ function App() {
                       {/* Writing Practice Type - Large text area for writing */}
                       {currentQuestion.type === 'writing' && (
                         <div>
-                          <div className="text-sm text-indigo-600 mb-2 font-medium">
-                            ✍️ Writing Practice - Write your response below (no auto-grading)
+                          <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                            <p className="text-sm text-indigo-700 font-medium">
+                              ✍️ Writing Practice - Write your response (no auto-grading, self-assess by comparing with sample)
+                            </p>
                           </div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Your written response:</label>
                           <textarea
                             value={userAnswer}
                             onChange={(e) => setUserAnswer(e.target.value)}
@@ -2065,7 +2232,7 @@ function App() {
                             autoFocus
                           />
                           <div className="mt-2 text-sm text-gray-600">
-                            Tip: Write complete sentences, then compare with the sample answer
+                            💡 Tip: Write complete sentences, then compare with the sample answer
                           </div>
                         </div>
                       )}
@@ -2073,14 +2240,11 @@ function App() {
                       {/* Speaking Practice Type */}
                       {currentQuestion.type === 'speaking' && (
                         <div>
-                          <div className="text-sm text-indigo-600 mb-2 font-medium">
-                            🗣️ Speaking Practice - Say your answer out loud, then type it below
-                          </div>
                           <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-4">
                             <p className="text-sm text-yellow-800">
-                              <strong>Instructions:</strong>
+                              <strong>🗣️ Instructions:</strong>
                             </p>
-                            <ol className="list-decimal list-inside text-sm text-yellow-800 mt-1">
+                            <ol className="list-decimal list-inside text-sm text-yellow-800 mt-2 space-y-1">
                               <li>Read the question aloud</li>
                               <li>Answer in complete German sentences</li>
                               <li>Record yourself if possible (use phone/computer)</li>
@@ -2088,6 +2252,7 @@ function App() {
                               <li>Compare with the sample answer</li>
                             </ol>
                           </div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Type what you said:</label>
                           <textarea
                             value={userAnswer}
                             onChange={(e) => setUserAnswer(e.target.value)}
@@ -2103,9 +2268,12 @@ function App() {
                       {/* Reading Comprehension Type */}
                       {currentQuestion.type === 'reading' && (
                         <div>
-                          <div className="text-sm text-gray-600 mb-2">
-                            📖 Answer based on the text above
+                          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-sm text-blue-700">
+                              📖 Answer based on the text above
+                            </p>
                           </div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Your answer:</label>
                           <input
                             type="text"
                             value={userAnswer}
@@ -2122,63 +2290,74 @@ function App() {
                       {/* Error Correction Type */}
                       {currentQuestion.type === 'error-correction' && (
                         <div>
-                          <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-4">
+                          <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-6">
                             <p className="text-sm text-yellow-800">
                               <strong>🔧 Error Correction:</strong> This sentence has one grammatical error. 
-                              Rewrite the ENTIRE sentence correctly.
+                              Find the error and rewrite the ENTIRE sentence correctly.
                             </p>
                           </div>
-                          <div className="text-sm text-gray-600 mb-2">Original sentence with error:</div>
-                          <div className="bg-red-50 p-3 rounded mb-3 text-lg border border-red-200">
-                            {currentQuestion.text}
+                          <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Original sentence with error:</label>
+                            <div className="bg-red-50 p-4 rounded-lg text-xl border-2 border-red-300 text-gray-900 font-medium">
+                              {highlightVocabulary(currentQuestion.text, handleWordClick)}
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-600 mb-2">Type the corrected sentence:</div>
-                          <input
-                            type="text"
-                            value={userAnswer}
-                            onChange={(e) => setUserAnswer(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
-                            disabled={feedback !== null}
-                            placeholder="Rewrite the entire sentence correctly..."
-                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
-                            autoFocus
-                          />
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Type the corrected sentence:</label>
+                            <input
+                              type="text"
+                              value={userAnswer}
+                              onChange={(e) => setUserAnswer(e.target.value)}
+                              onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
+                              disabled={feedback !== null}
+                              placeholder="Rewrite the entire sentence correctly..."
+                              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
+                              autoFocus
+                            />
+                          </div>
                         </div>
                       )}
 
                       {/* Word Order Type */}
                       {currentQuestion.type === 'word-order' && (
                         <div>
-                          <div className="bg-blue-50 border border-blue-300 rounded-lg p-4 mb-4">
+                          <div className="bg-blue-50 border border-blue-300 rounded-lg p-4 mb-6">
                             <p className="text-sm text-blue-800">
                               <strong>🔀 Word Order:</strong> Arrange the words to form a correct German sentence.
                               Remember: Subject-Verb-Time-Manner-Place (TE-KA-MO-LO) or Time-Verb-Subject when time comes first.
                             </p>
                           </div>
-                          <div className="text-sm text-gray-600 mb-2">Words to arrange:</div>
-                          <div className="bg-gray-100 p-3 rounded mb-3 text-lg border border-gray-300 font-mono">
-                            {currentQuestion.text}
+                          <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Words to arrange:</label>
+                            <div className="bg-gray-100 p-4 rounded-lg text-xl border-2 border-gray-300 font-mono text-gray-900 font-medium">
+                              {highlightVocabulary(currentQuestion.text, handleWordClick)}
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-600 mb-2">Type the sentence in correct order:</div>
-                          <input
-                            type="text"
-                            value={userAnswer}
-                            onChange={(e) => setUserAnswer(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
-                            disabled={feedback !== null}
-                            placeholder="Type the complete sentence..."
-                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
-                            autoFocus
-                          />
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Type the sentence in correct order:</label>
+                            <input
+                              type="text"
+                              value={userAnswer}
+                              onChange={(e) => setUserAnswer(e.target.value)}
+                              onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
+                              disabled={feedback !== null}
+                              placeholder="Type the complete sentence..."
+                              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
+                              autoFocus
+                            />
+                          </div>
                         </div>
                       )}
 
                       {/* Multiple Choice Type */}
                       {currentQuestion.type === 'choice' && currentQuestion.context && (
                         <div>
-                          <div className="bg-purple-50 border border-purple-300 rounded-lg p-4 mb-4">
-                            <p className="text-sm text-purple-800">
-                              <strong>☑️ Multiple Choice:</strong> Select the correct answer from the options below.
+                          <div className="mb-6 p-5 bg-white border-2 border-purple-200 rounded-lg">
+                            <h4 className="text-xl font-bold text-gray-900 mb-2">
+                              {highlightVocabulary(currentQuestion.text, handleWordClick)}
+                            </h4>
+                            <p className="text-sm text-purple-700">
+                              ☑️ Select the correct answer from the options below
                             </p>
                           </div>
                           <div className="space-y-3">
@@ -2194,7 +2373,7 @@ function App() {
                                   disabled={isDisabled}
                                   className={`w-full text-left px-6 py-4 rounded-lg border-2 transition-all ${
                                     isSelected 
-                                      ? 'border-indigo-500 bg-indigo-50 text-indigo-900' 
+                                      ? 'border-indigo-500 bg-indigo-50' 
                                       : 'border-gray-300 bg-white hover:border-indigo-300 hover:bg-indigo-50'
                                   } ${isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                                 >
@@ -2204,7 +2383,11 @@ function App() {
                                     }`}>
                                       {isSelected && <div className="w-2 h-2 rounded-full bg-white"></div>}
                                     </div>
-                                    <span className="text-lg">{optionText}</span>
+                                    <span className={`text-lg font-medium ${
+                                      isSelected ? 'text-indigo-900' : 'text-gray-900'
+                                    }`}>
+                                      {highlightVocabulary(optionText, handleWordClick)}
+                                    </span>
                                   </div>
                                 </button>
                               );
@@ -2216,140 +2399,161 @@ function App() {
                       {/* Matching Exercise Type */}
                       {currentQuestion.type === 'match' && currentQuestion.context && (
                         <div>
-                          <div className="bg-green-50 border border-green-300 rounded-lg p-4 mb-4">
+                          <div className="bg-green-50 border border-green-300 rounded-lg p-4 mb-6">
                             <p className="text-sm text-green-800">
-                              <strong>🔗 Matching Exercise:</strong> Match items by typing pairs (e.g., "helfen-der Frau, danken-ihnen")
+                              <strong>🔗 Matching Exercise:</strong> Match items by typing pairs (e.g., "item1-match1, item2-match2")
                             </p>
                           </div>
-                          <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div className="grid grid-cols-2 gap-4 mb-6">
                             <div>
-                              <div className="text-sm font-semibold text-gray-700 mb-2">Column A:</div>
-                              <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">Column A:</label>
+                              <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
                                 {currentQuestion.text.split(',').map((item, idx) => (
-                                  <div key={idx} className="py-1 text-gray-800">{idx + 1}. {item.trim()}</div>
+                                  <div key={idx} className="py-2 text-gray-900 font-medium">
+                                    {idx + 1}. {highlightVocabulary(item.trim(), handleWordClick)}
+                                  </div>
                                 ))}
                               </div>
                             </div>
                             <div>
-                              <div className="text-sm font-semibold text-gray-700 mb-2">Column B:</div>
-                              <div className="bg-yellow-50 p-4 rounded border border-yellow-200">
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">Column B:</label>
+                              <div className="bg-yellow-50 p-4 rounded-lg border-2 border-yellow-200">
                                 {currentQuestion.context.split(',').map((item, idx) => (
-                                  <div key={idx} className="py-1 text-gray-800">• {item.trim()}</div>
+                                  <div key={idx} className="py-2 text-gray-900 font-medium">
+                                    • {highlightVocabulary(item.trim(), handleWordClick)}
+                                  </div>
                                 ))}
                               </div>
                             </div>
                           </div>
-                          <div className="text-sm text-gray-600 mb-2">Type your matches (comma-separated pairs):</div>
-                          <input
-                            type="text"
-                            value={userAnswer}
-                            onChange={(e) => setUserAnswer(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
-                            disabled={feedback !== null}
-                            placeholder="item1-match1, item2-match2, item3-match3..."
-                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
-                            autoFocus
-                          />
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Type your matches (comma-separated pairs):</label>
+                            <input
+                              type="text"
+                              value={userAnswer}
+                              onChange={(e) => setUserAnswer(e.target.value)}
+                              onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
+                              disabled={feedback !== null}
+                              placeholder="item1-match1, item2-match2, item3-match3..."
+                              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
+                              autoFocus
+                            />
+                          </div>
                         </div>
                       )}
 
                       {/* Sentence Building/Order Type */}
                       {currentQuestion.type === 'order' && (
                         <div>
-                          <div className="bg-indigo-50 border border-indigo-300 rounded-lg p-4 mb-4">
+                          <div className="bg-indigo-50 border border-indigo-300 rounded-lg p-4 mb-6">
                             <p className="text-sm text-indigo-800">
                               <strong>🧩 Sentence Building:</strong> Build a correct German sentence from the words below.
                             </p>
                           </div>
-                          <div className="text-sm text-gray-600 mb-2">Available words:</div>
-                          <div className="flex flex-wrap gap-2 mb-4 p-4 bg-gray-50 rounded border border-gray-200">
-                            {currentQuestion.text.split(/[/,]/).map((word, idx) => (
-                              <span
-                                key={idx}
-                                className="px-3 py-2 bg-white border-2 border-indigo-300 rounded-lg text-gray-800 font-medium shadow-sm"
-                              >
-                                {word.trim()}
-                              </span>
-                            ))}
+                          <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Available words:</label>
+                            <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
+                              {currentQuestion.text.split(/[/,]/).map((word, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-3 py-2 bg-white border-2 border-indigo-300 rounded-lg text-gray-900 font-medium shadow-sm"
+                                >
+                                  {highlightVocabulary(word.trim(), handleWordClick)}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-600 mb-2">Type the complete sentence:</div>
-                          <input
-                            type="text"
-                            value={userAnswer}
-                            onChange={(e) => setUserAnswer(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
-                            disabled={feedback !== null}
-                            placeholder="Type the sentence using all words..."
-                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
-                            autoFocus
-                          />
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Type the complete sentence:</label>
+                            <input
+                              type="text"
+                              value={userAnswer}
+                              onChange={(e) => setUserAnswer(e.target.value)}
+                              onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
+                              disabled={feedback !== null}
+                              placeholder="Type the sentence using all words..."
+                              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
+                              autoFocus
+                            />
+                          </div>
                         </div>
                       )}
 
                       {/* Cloze Passage Type */}
                       {currentQuestion.type === 'cloze' && (
                         <div>
-                          <div className="bg-orange-50 border border-orange-300 rounded-lg p-4 mb-4">
+                          <div className="bg-orange-50 border border-orange-300 rounded-lg p-4 mb-6">
                             <p className="text-sm text-orange-800">
                               <strong>📄 Cloze Passage:</strong> Fill in the blanks in the text passage.
                               Enter answers separated by commas.
                             </p>
                           </div>
-                          <div className="bg-white p-4 rounded border-2 border-gray-300 mb-4">
-                            <div className="text-lg leading-relaxed whitespace-pre-wrap">
-                              {currentQuestion.text.split(/\{blank\d*\}/).map((part, idx, arr) => (
-                                <span key={idx}>
-                                  {part}
-                                  {idx < arr.length - 1 && (
-                                    <span className="inline-block mx-1 px-3 py-1 bg-yellow-100 border-2 border-yellow-400 rounded">
-                                      <span className="text-yellow-700 font-semibold">____{idx + 1}____</span>
-                                    </span>
-                                  )}
-                                </span>
-                              ))}
+                          <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Passage:</label>
+                            <div className="bg-white p-5 rounded-lg border-2 border-gray-300">
+                              <div className="text-lg leading-relaxed whitespace-pre-wrap text-gray-900">
+                                {currentQuestion.text.split(/\{blank\d*\}/).map((part, idx, arr) => (
+                                  <span key={idx}>
+                                    {highlightVocabulary(part, handleWordClick)}
+                                    {idx < arr.length - 1 && (
+                                      <span className="inline-block mx-1 px-3 py-1 bg-yellow-100 border-2 border-yellow-400 rounded">
+                                        <span className="text-yellow-700 font-semibold">____{idx + 1}____</span>
+                                      </span>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           </div>
-                          <div className="text-sm text-gray-600 mb-2">
-                            Fill in the blanks (comma-separated, in order):
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                              Fill in the blanks (comma-separated, in order):
+                            </label>
+                            <input
+                              type="text"
+                              value={userAnswer}
+                              onChange={(e) => setUserAnswer(e.target.value)}
+                              onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
+                              disabled={feedback !== null}
+                              placeholder="answer1, answer2, answer3..."
+                              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
+                              autoFocus
+                            />
                           </div>
-                          <input
-                            type="text"
-                            value={userAnswer}
-                            onChange={(e) => setUserAnswer(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
-                            disabled={feedback !== null}
-                            placeholder="answer1, answer2, answer3..."
-                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
-                            autoFocus
-                          />
                         </div>
                       )}
 
                       {/* Dialogue Practice Type */}
                       {currentQuestion.type === 'dialogue' && currentQuestion.context && (
                         <div>
-                          <div className="bg-pink-50 border border-pink-300 rounded-lg p-4 mb-4">
+                          <div className="bg-pink-50 border border-pink-300 rounded-lg p-4 mb-6">
                             <p className="text-sm text-pink-800">
                               <strong>💬 Dialogue Practice:</strong> Respond naturally to the conversation.
                               Compare your answer with the sample response.
                             </p>
                           </div>
-                          <div className="bg-gray-100 p-4 rounded mb-4 border border-gray-300">
-                            <div className="text-sm text-gray-600 mb-2">Situation:</div>
-                            <div className="text-gray-800 mb-3">{currentQuestion.context}</div>
-                            <div className="text-sm text-gray-600 mb-2">Your turn:</div>
-                            <div className="text-indigo-700 font-medium">{currentQuestion.text}</div>
+                          <div className="mb-4 p-5 bg-gray-50 rounded-lg border-2 border-gray-300">
+                            <div className="mb-4">
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">Situation:</label>
+                              <p className="text-gray-900 leading-relaxed">{highlightVocabulary(currentQuestion.context, handleWordClick)}</p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">Prompt:</label>
+                              <p className="text-indigo-700 font-medium text-lg">{highlightVocabulary(currentQuestion.text, handleWordClick)}</p>
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-600 mb-2">Your response:</div>
-                          <textarea
-                            value={userAnswer}
-                            onChange={(e) => setUserAnswer(e.target.value)}
-                            disabled={feedback !== null}
-                            placeholder="Type your natural response..."
-                            rows={4}
-                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
-                            autoFocus
-                          />
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Your response:</label>
+                            <textarea
+                              value={userAnswer}
+                              onChange={(e) => setUserAnswer(e.target.value)}
+                              disabled={feedback !== null}
+                              placeholder="Type your natural response..."
+                              rows={4}
+                              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
+                              autoFocus
+                            />
+                          </div>
                         </div>
                       )}
                     </div>
@@ -2660,6 +2864,188 @@ die Frau >> den Frauen
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                   >
                     Parse & Add All Exercises
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Vocabulary Modal - Shows word details when clicked */}
+        {showVocabModal && selectedWord && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-2xl font-bold text-gray-800">{selectedWord.word}</h3>
+                  <button
+                    onClick={() => setShowVocabModal(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-600 mb-1">Meaning:</h4>
+                    <p className="text-lg text-gray-900">{selectedWord.meaning}</p>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-600 mb-2">Forms:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedWord.forms.map((form, idx) => (
+                        <span
+                          key={idx}
+                          className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-sm font-medium border border-indigo-200"
+                        >
+                          {form}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => setShowVocabModal(false)}
+                  className="mt-6 w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Single Vocabulary Modal */}
+        {showAddVocabModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+              <div className="p-6">
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">Add Vocabulary Word</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Word <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={singleVocabWord}
+                      onChange={(e) => setSingleVocabWord(e.target.value)}
+                      placeholder="e.g., lesen"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Forms (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      value={singleVocabForms}
+                      onChange={(e) => setSingleVocabForms(e.target.value)}
+                      placeholder="e.g., lesen, liest, las, gelesen"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      All verb forms, articles, plurals, etc.
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Meaning <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={singleVocabMeaning}
+                      onChange={(e) => setSingleVocabMeaning(e.target.value)}
+                      placeholder="e.g., to read"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => {
+                      setShowAddVocabModal(false);
+                      setSingleVocabWord('');
+                      setSingleVocabForms('');
+                      setSingleVocabMeaning('');
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={addSingleVocab}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                  >
+                    Add Word
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Bulk Vocabulary Modal */}
+        {showBulkVocabModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">Bulk Import Vocabulary</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Paste your vocabulary JSON below. The format should include a "vocabulary" array.
+                </p>
+                
+                <div className="bg-gray-50 p-4 rounded-lg mb-4 text-xs font-mono">
+                  <div className="text-gray-700 mb-2"><strong>Format Example:</strong></div>
+                  <pre className="whitespace-pre-wrap text-gray-600">
+{`{
+  "vocabulary": [
+    {
+      "word": "lesen",
+      "forms": ["lesen", "liest", "las", "gelesen"],
+      "meaning": "to read"
+    },
+    {
+      "word": "Fahrrad",
+      "forms": ["das Fahrrad", "Fahrräder"],
+      "meaning": "bicycle"
+    }
+  ]
+}`}
+                  </pre>
+                </div>
+
+                <textarea
+                  value={bulkVocabText}
+                  onChange={(e) => setBulkVocabText(e.target.value)}
+                  placeholder="Paste JSON here..."
+                  rows={14}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md font-mono text-sm bg-white text-gray-900 mb-4"
+                />
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowBulkVocabModal(false);
+                      setBulkVocabText('');
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={addBulkVocab}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Import Vocabulary
                   </button>
                 </div>
               </div>
