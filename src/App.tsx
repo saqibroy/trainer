@@ -385,38 +385,103 @@ function App() {
       // Check version compatibility
       if (storedVersion && storedVersion !== APP_VERSION) {
         console.log(`App updated from ${storedVersion} to ${APP_VERSION}`);
-        // Version changed but we'll try to load data anyway
-        // Only clear if there's a parsing error
       }
       
       if (stored) {
         try {
           const data = JSON.parse(stored);
           
-          // Check if data has topics or old exercises format
-          if (data.topics) {
-            setTopics(data.topics);
+          // Validate and migrate data structure
+          let loadedTopics: Topic[] = [];
+          let loadedVocabulary: VocabularyItem[] = [];
+          
+          // Handle topics
+          if (data.topics && Array.isArray(data.topics)) {
+            // Validate each topic has required fields
+            loadedTopics = data.topics.map((topic: any) => {
+              // Ensure topic has all required fields
+              return {
+                id: topic.id || `topic-${Date.now()}-${Math.random()}`,
+                title: topic.title || 'Untitled Topic',
+                description: topic.description,
+                createdAt: topic.createdAt || new Date().toISOString(),
+                exercises: Array.isArray(topic.exercises) ? topic.exercises.map((ex: any) => {
+                  // Ensure exercise has required fields
+                  return {
+                    id: ex.id || `ex-${Date.now()}-${Math.random()}`,
+                    name: ex.name || 'Untitled Exercise',
+                    description: ex.description,
+                    instructions: ex.instructions,
+                    questions: Array.isArray(ex.questions) ? ex.questions.map((q: any) => {
+                      // Ensure question has required fields
+                      return {
+                        id: q.id || `q-${Date.now()}-${Math.random()}`,
+                        type: q.type || 'fill-blank',
+                        text: q.text || '',
+                        answer: q.answer || '',
+                        context: q.context,
+                        timesAnswered: q.timesAnswered || 0,
+                        timesCorrect: q.timesCorrect || 0,
+                        lastReviewed: q.lastReviewed || null,
+                        createdAt: q.createdAt || new Date().toISOString()
+                      };
+                    }) : []
+                  };
+                }) : []
+              };
+            });
           } else if (data.exercises) {
             // Migrate old format to topics
             const migratedTopics = migrateToTopics(data.exercises);
-            setTopics(migratedTopics);
-            // Auto-select the migrated topic
+            loadedTopics = migratedTopics;
             if (migratedTopics.length > 0) {
               setSelectedTopicId(migratedTopics[0].id);
             }
           }
           
-          // Load vocabulary (safe check)
+          // Handle vocabulary (safe check with validation)
           if (data.vocabulary && Array.isArray(data.vocabulary)) {
-            setVocabulary(data.vocabulary);
+            loadedVocabulary = data.vocabulary.map((vocab: any) => {
+              return {
+                id: vocab.id || `vocab-${Date.now()}-${Math.random()}`,
+                word: vocab.word || '',
+                forms: Array.isArray(vocab.forms) ? vocab.forms : [vocab.word || ''],
+                meaning: vocab.meaning || '',
+                createdAt: vocab.createdAt || new Date().toISOString()
+              };
+            });
           }
+          
+          // Set the validated data
+          setTopics(loadedTopics);
+          setVocabulary(loadedVocabulary);
           
           // Update version after successful load
           localStorage.setItem(VERSION_KEY, APP_VERSION);
+          
+          console.log(`Loaded ${loadedTopics.length} topics and ${loadedVocabulary.length} vocabulary items`);
         } catch (parseError) {
           console.error('Failed to parse stored data:', parseError);
-          // Data is corrupted, but don't delete it - let user export if needed
-          alert('There was an issue loading your data. The app will start fresh, but your old data is still saved. Please export it if you need to recover it.');
+          
+          // Try to backup the corrupted data
+          const backupKey = `${STORAGE_KEY}-backup-${Date.now()}`;
+          localStorage.setItem(backupKey, stored);
+          
+          // Alert user with recovery option
+          const recover = confirm(
+            'There was an issue loading your data. Your data has been backed up.\n\n' +
+            'Click OK to start fresh (your old data is saved as backup).\n' +
+            'Click Cancel to try exporting your data first.'
+          );
+          
+          if (!recover) {
+            // Give user a chance to export
+            alert('Please use the Export button to save your data, then refresh the page.');
+          } else {
+            // Clear storage and start fresh
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.setItem(VERSION_KEY, APP_VERSION);
+          }
         }
       } else {
         // First time user, set version
@@ -424,7 +489,6 @@ function App() {
       }
     } catch (error) {
       console.error('Error accessing localStorage:', error);
-      // LocalStorage might be disabled or full
       alert('Could not access browser storage. Some features may not work correctly.');
     }
   }, []);

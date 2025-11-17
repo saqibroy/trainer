@@ -26,6 +26,8 @@
     
     <!-- Register Service Worker -->
     <script>
+      // TEMPORARILY DISABLED - Will re-enable after fixing cache issues
+      /*
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
@@ -57,6 +59,17 @@
           navigator.serviceWorker.addEventListener('controllerchange', () => {
             console.log('Service worker controller changed, reloading...');
             window.location.reload();
+          });
+        });
+      }
+      */
+      
+      // UNREGISTER any existing service workers to fix white screen
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          registrations.forEach(registration => {
+            registration.unregister();
+            console.log('[Fix] Unregistered service worker');
           });
         });
       }
