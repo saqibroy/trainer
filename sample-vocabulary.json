@@ -1,0 +1,229 @@
+{
+  "vocabulary": [
+    {
+      "word": "lesen",
+      "forms": ["lesen", "liest", "las", "gelesen"],
+      "meaning": "to read"
+    },
+    {
+      "word": "Nachrichten",
+      "forms": ["die Nachrichten"],
+      "meaning": "news"
+    },
+    {
+      "word": "Smartphone",
+      "forms": ["das Smartphone", "Smartphones"],
+      "meaning": "smartphone"
+    },
+    {
+      "word": "praktisch",
+      "forms": ["praktisch"],
+      "meaning": "practical, convenient"
+    },
+    {
+      "word": "Information",
+      "forms": ["die Information", "Informationen"],
+      "meaning": "information"
+    },
+    {
+      "word": "bekommen",
+      "forms": ["bekommen", "bekam", "bekommen hat"],
+      "meaning": "to receive"
+    },
+    {
+      "word": "fahren",
+      "forms": ["fahren", "fährt", "fuhr", "gefahren"],
+      "meaning": "to drive, to ride"
+    },
+    {
+      "word": "Fahrrad",
+      "forms": ["das Fahrrad", "Fahrräder"],
+      "meaning": "bicycle"
+    },
+    {
+      "word": "Arbeit",
+      "forms": ["die Arbeit"],
+      "meaning": "work"
+    },
+    {
+      "word": "Wochenende",
+      "forms": ["das Wochenende", "Wochenenden"],
+      "meaning": "weekend"
+    },
+    {
+      "word": "bleiben",
+      "forms": ["bleiben", "blieb", "geblieben"],
+      "meaning": "to stay"
+    },
+    {
+      "word": "zu Hause",
+      "forms": ["zu Hause"],
+      "meaning": "at home"
+    },
+    {
+      "word": "E-Mail",
+      "forms": ["die E-Mail", "E-Mails"],
+      "meaning": "email"
+    },
+    {
+      "word": "Bescheid geben",
+      "forms": ["Bescheid geben", "gab Bescheid", "Bescheid gegeben"],
+      "meaning": "to inform"
+    },
+    {
+      "word": "nächste Woche",
+      "forms": ["nächste Woche"],
+      "meaning": "next week"
+    },
+    {
+      "word": "Termin",
+      "forms": ["der Termin", "Termine"],
+      "meaning": "appointment"
+    },
+    {
+      "word": "Amt",
+      "forms": ["das Amt", "Ämter"],
+      "meaning": "government office"
+    },
+    {
+      "word": "Hausaufgaben",
+      "forms": ["die Hausaufgabe", "Hausaufgaben"],
+      "meaning": "homework"
+    },
+    {
+      "word": "trotzdem",
+      "forms": ["trotzdem"],
+      "meaning": "nevertheless"
+    },
+    {
+      "word": "renovieren",
+      "forms": ["renovieren", "renovierte", "renoviert"],
+      "meaning": "to renovate"
+    },
+    {
+      "word": "Spielplatz",
+      "forms": ["der Spielplatz", "Spielplätze"],
+      "meaning": "playground"
+    },
+    {
+      "word": "Bank",
+      "forms": ["die Bank", "Bänke"],
+      "meaning": "bench"
+    },
+    {
+      "word": "Café",
+      "forms": ["das Café", "Cafés"],
+      "meaning": "café"
+    },
+    {
+      "word": "Besucher",
+      "forms": ["der Besucher", "Besucher"],
+      "meaning": "visitor"
+    },
+    {
+      "word": "autofrei",
+      "forms": ["autofrei"],
+      "meaning": "car-free"
+    },
+    {
+      "word": "Stadtzentrum",
+      "forms": ["das Stadtzentrum", "Stadtzentren"],
+      "meaning": "city center"
+    },
+    {
+      "word": "sperren",
+      "forms": ["sperren", "sperrte", "gesperrt"],
+      "meaning": "to block, to close off"
+    },
+    {
+      "word": "Lärm",
+      "forms": ["der Lärm"],
+      "meaning": "noise"
+    },
+    {
+      "word": "Abgase",
+      "forms": ["die Abgase"],
+      "meaning": "emissions, exhaust fumes"
+    },
+    {
+      "word": "reduzieren",
+      "forms": ["reduzieren", "reduzierte", "reduziert"],
+      "meaning": "to reduce"
+    },
+    {
+      "word": "begrüßen",
+      "forms": ["begrüßen", "begrüßte", "begrüßt"],
+      "meaning": "to welcome, to approve of"
+    },
+    {
+      "word": "kritisieren",
+      "forms": ["kritisieren", "kritisierte", "kritisiert"],
+      "meaning": "to criticize"
+    },
+    {
+      "word": "Balkon",
+      "forms": ["der Balkon", "Balkone"],
+      "meaning": "balcony"
+    },
+    {
+      "word": "ruhige Lage",
+      "forms": ["ruhige Lage"],
+      "meaning": "quiet location"
+    },
+    {
+      "word": "Zimmer",
+      "forms": ["das Zimmer", "Zimmer"],
+      "meaning": "room"
+    },
+    {
+      "word": "günstig",
+      "forms": ["günstig"],
+      "meaning": "affordable"
+    },
+    {
+      "word": "renoviert",
+      "forms": ["renoviert"],
+      "meaning": "renovated"
+    },
+    {
+      "word": "Meinung",
+      "forms": ["die Meinung", "Meinungen"],
+      "meaning": "opinion"
+    },
+    {
+      "word": "funktionieren",
+      "forms": ["funktionieren", "funktionierte", "funktioniert"],
+      "meaning": "to function, to work"
+    },
+    {
+      "word": "öffentlicher Verkehr",
+      "forms": ["der öffentliche Verkehr"],
+      "meaning": "public transport"
+    },
+    {
+      "word": "Parken",
+      "forms": ["parken", "parkte", "geparkt"],
+      "meaning": "to park"
+    },
+    {
+      "word": "Parkschein",
+      "forms": ["der Parkschein", "Parkscheine"],
+      "meaning": "parking ticket"
+    },
+    {
+      "word": "Müllentsorgung",
+      "forms": ["die Müllentsorgung"],
+      "meaning": "waste disposal"
+    },
+    {
+      "word": "Bibliothek",
+      "forms": ["die Bibliothek", "Bibliotheken"],
+      "meaning": "library"
+    },
+    {
+      "word": "Rückgabe",
+      "forms": ["die Rückgabe"],
+      "meaning": "return (of items)"
+    }
+  ]
+}

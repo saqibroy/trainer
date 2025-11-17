@@ -3,6 +3,8 @@ import { Trash2, Plus, BookOpen, Target, Edit2, Check, X, Clock, Download, Uploa
 import ReactMarkdown from 'react-markdown';
 
 const STORAGE_KEY = 'german-practice-data';
+const APP_VERSION = '2.0.0'; // Increment this when making breaking changes
+const VERSION_KEY = 'app-version';
 
 // Question interface with all required fields
 interface Question {
@@ -376,38 +378,68 @@ function App() {
 
   // Load data from localStorage with migration support
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const data = JSON.parse(stored);
-        
-        // Check if data has topics or old exercises format
-        if (data.topics) {
-          setTopics(data.topics);
-        } else if (data.exercises) {
-          // Migrate old format to topics
-          const migratedTopics = migrateToTopics(data.exercises);
-          setTopics(migratedTopics);
-          // Auto-select the migrated topic
-          if (migratedTopics.length > 0) {
-            setSelectedTopicId(migratedTopics[0].id);
-          }
-        }
-        
-        // Load vocabulary
-        if (data.vocabulary) {
-          setVocabulary(data.vocabulary);
-        }
-      } catch (e) {
-        console.error('Failed to parse stored data');
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      const storedVersion = localStorage.getItem(VERSION_KEY);
+      
+      // Check version compatibility
+      if (storedVersion && storedVersion !== APP_VERSION) {
+        console.log(`App updated from ${storedVersion} to ${APP_VERSION}`);
+        // Version changed but we'll try to load data anyway
+        // Only clear if there's a parsing error
       }
+      
+      if (stored) {
+        try {
+          const data = JSON.parse(stored);
+          
+          // Check if data has topics or old exercises format
+          if (data.topics) {
+            setTopics(data.topics);
+          } else if (data.exercises) {
+            // Migrate old format to topics
+            const migratedTopics = migrateToTopics(data.exercises);
+            setTopics(migratedTopics);
+            // Auto-select the migrated topic
+            if (migratedTopics.length > 0) {
+              setSelectedTopicId(migratedTopics[0].id);
+            }
+          }
+          
+          // Load vocabulary (safe check)
+          if (data.vocabulary && Array.isArray(data.vocabulary)) {
+            setVocabulary(data.vocabulary);
+          }
+          
+          // Update version after successful load
+          localStorage.setItem(VERSION_KEY, APP_VERSION);
+        } catch (parseError) {
+          console.error('Failed to parse stored data:', parseError);
+          // Data is corrupted, but don't delete it - let user export if needed
+          alert('There was an issue loading your data. The app will start fresh, but your old data is still saved. Please export it if you need to recover it.');
+        }
+      } else {
+        // First time user, set version
+        localStorage.setItem(VERSION_KEY, APP_VERSION);
+      }
+    } catch (error) {
+      console.error('Error accessing localStorage:', error);
+      // LocalStorage might be disabled or full
+      alert('Could not access browser storage. Some features may not work correctly.');
     }
   }, []);
 
   // Save to localStorage
   useEffect(() => {
-    if (topics.length > 0 || vocabulary.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ topics, vocabulary }));
+    try {
+      if (topics.length > 0 || vocabulary.length > 0) {
+        const dataToSave = { topics, vocabulary };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+        localStorage.setItem(VERSION_KEY, APP_VERSION);
+      }
+    } catch (error) {
+      console.error('Failed to save to localStorage:', error);
+      // Storage might be full or disabled
     }
   }, [topics, vocabulary]);
 
