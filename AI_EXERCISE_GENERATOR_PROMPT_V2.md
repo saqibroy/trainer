@@ -493,10 +493,73 @@ c) Option 3
 
 ## 📚 B1 VOCABULARY - WHAT TO INCLUDE
 
-### Generate vocabulary for EVERY exercise set covering:
+### 🔍 CRITICAL: Extract Vocabulary FROM Your Exercises!
 
-1. **Topic-specific words** (e.g., for "Im Restaurant": Kellner, bestellen, Rechnung)
-2. **Verbs with all forms**:
+**IMPORTANT:** Generate vocabulary by analyzing ALL the words used in your exercise questions!
+
+#### Extraction Process:
+
+**Step 1: Identify verbs in questions**
+```
+Exercise question: "Ich gebe ___ Lehrer das Buch."
+↓
+Vocabulary to add:
+{
+  "word": "geben",
+  "forms": ["geben", "gibt", "gab", "gegeben", "ich gebe", "du gibst", "er gibt"],
+  "meaning": "to give"
+}
+```
+
+**Step 2: Identify nouns with articles**
+```
+Exercise question: "Der Lehrer hilft ___ Schüler."
+↓
+Vocabulary to add:
+{
+  "word": "Lehrer",
+  "forms": ["der Lehrer", "des Lehrers", "dem Lehrer", "den Lehrer", "die Lehrer"],
+  "meaning": "teacher"
+},
+{
+  "word": "Schüler",
+  "forms": ["der Schüler", "des Schülers", "dem Schüler", "den Schüler", "die Schüler"],
+  "meaning": "student, pupil"
+}
+```
+
+**Step 3: Identify adjectives and other key words**
+```
+Exercise question: "Das schöne Haus gehört meinem Bruder."
+↓
+Vocabulary to add:
+{
+  "word": "schön",
+  "forms": ["schön", "schöner", "am schönsten", "schöne", "schönen", "schönes"],
+  "meaning": "beautiful, nice"
+},
+{
+  "word": "Haus",
+  "forms": ["das Haus", "des Hauses", "dem Haus", "das Haus", "die Häuser"],
+  "meaning": "house"
+}
+```
+
+**Step 4: Include topic-specific vocabulary**
+```
+For topic "Im Restaurant", even if not in every question:
+- der Kellner / die Kellnerin (waiter/waitress)
+- die Speisekarte (menu)
+- bestellen (to order)
+- die Rechnung (bill)
+- das Trinkgeld (tip)
+```
+
+---
+
+### Vocabulary Format Examples:
+
+1. **Verbs with all forms**:
    ```json
    {
      "word": "helfen",
@@ -505,7 +568,7 @@ c) Option 3
    }
    ```
 
-3. **Nouns with articles and plurals**:
+2. **Nouns with articles and plurals**:
    ```json
    {
      "word": "Tisch",
@@ -514,7 +577,7 @@ c) Option 3
    }
    ```
 
-4. **Adjectives with examples**:
+3. **Adjectives with declensions**:
    ```json
    {
      "word": "schön",
@@ -523,7 +586,7 @@ c) Option 3
    }
    ```
 
-5. **Common phrases**:
+4. **Common phrases**:
    ```json
    {
      "word": "Bescheid geben",
@@ -532,12 +595,17 @@ c) Option 3
    }
    ```
 
-### Vocabulary Selection Criteria:
-- ✅ A2-B1 level (CEFR)
-- ✅ Appears in telc B1 exam materials
-- ✅ Useful for everyday communication in Germany
-- ✅ Used in the exercises you're creating
-- ✅ 20-40 words per topic set
+---
+
+### Vocabulary Selection Checklist:
+- ✅ **EVERY word from exercises included** (verbs, nouns, adjectives)
+- ✅ **All forms provided** (conjugations, declensions, plurals)
+- ✅ **Articles included** for nouns (der/die/das)
+- ✅ **A2-B1 level** (CEFR appropriate)
+- ✅ **Appears in telc B1 exam materials**
+- ✅ **20-40 words per topic** (minimum)
+- ✅ **Topic-specific vocabulary** included
+- ✅ **Students can tap words during practice** to see translations
 
 ---
 
@@ -565,14 +633,18 @@ Before providing output, ensure:
 - [ ] ALL questions have answers in the EXACT format shown
 - [ ] 6-8 exercises created with variety
 - [ ] Used at least 8 different question types
+- [ ] **REQUIRED: Includes one full conversation exercise (Exercise 6)**
 - [ ] Each exercise has detailed description with:
   - [ ] Grammar focus clearly stated
   - [ ] telc relevance explained
   - [ ] Common mistakes highlighted
   - [ ] Success target provided
 - [ ] Progression from easy to hard
-- [ ] 20-40 vocabulary words generated
-- [ ] All vocabulary includes comprehensive forms
+- [ ] **20-40 vocabulary words generated from exercises**
+- [ ] **Vocabulary extracted from ALL exercise questions** (verbs, nouns, adjectives)
+- [ ] **All vocabulary includes comprehensive forms** (conjugations, declensions, articles)
+- [ ] **Every noun has article** (der/die/das in forms array)
+- [ ] **Every verb has conjugations** (present, past, perfect)
 - [ ] Questions use realistic German (Berlin dialect is okay)
 - [ ] Grammar is 100% correct
 - [ ] Difficulty appropriate for B1

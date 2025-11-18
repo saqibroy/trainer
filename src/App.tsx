@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Trash2, Plus, BookOpen, Target, Edit2, Check, X, Clock, Download, Upload } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import MatchQuestion from './components/MatchQuestion';
+import OrderQuestion from './components/OrderQuestion';
+import ClozeQuestion from './components/ClozeQuestion';
 
 const STORAGE_KEY = 'german-practice-data';
 const APP_VERSION = '2.0.0'; // Increment this when making breaking changes
@@ -9,7 +12,7 @@ const VERSION_KEY = 'app-version';
 // Question interface with all required fields
 interface Question {
   id: string;
-  type: 'fill-blank' | 'transform' | 'multi-blank' | 'identify' | 'writing' | 'speaking' | 'reading' | 'error-correction' | 'word-order' | 'choice' | 'match' | 'order' | 'cloze' | 'dialogue';
+  type: 'fill-blank' | 'transform' | 'multi-blank' | 'identify' | 'writing' | 'speaking' | 'reading' | 'error-correction' | 'word-order' | 'choice' | 'match' | 'order' | 'cloze' | 'dialogue' | 'conversation';
   text: string;
   answer: string | string[]; // Array for multiple answers, or sample answer for practice-only types
   context?: string; // Optional context/hints - used for choices in CHOICE type, passage in CLOZE, etc.
@@ -36,13 +39,17 @@ interface Topic {
   exercises: Exercise[];
 }
 
-// Vocabulary interface
+// Vocabulary interface with SRS tracking
 interface VocabularyItem {
   id: string;
   word: string;
   forms: string[];
   meaning: string;
   createdAt: string;
+  topicId?: string; // Link to topic for vocabulary practice
+  timesAnswered: number; // Track flashcard practice
+  timesCorrect: number; // Track correct answers
+  lastReviewed: string | null; // Last practice date
 }
 
 // Parsed exercise structure from bulk import
@@ -137,6 +144,12 @@ const QUESTION_TYPE_INFO = {
     icon: '💬',
     description: 'Practice conversational responses',
     autoGrade: false
+  },
+  'conversation': {
+    label: 'Interactive Conversation',
+    icon: '🗨️',
+    description: 'Multi-turn conversation with fill-in-the-blanks',
+    autoGrade: true
   }
 };
 
@@ -359,6 +372,8 @@ function App() {
   // Practice states
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
+  const [conversationTurnIndex, setConversationTurnIndex] = useState(0); // Track current turn in conversation
+  const [conversationAnswers, setConversationAnswers] = useState<string[]>([]); // Store answers for each turn
   const [feedback, setFeedback] = useState<{ correct: boolean; correctAnswer: string | string[] } | null>(null);
   const [sessionPool, setSessionPool] = useState<Question[]>([]);
   const [sessionSize, setSessionSize] = useState(5);
@@ -370,11 +385,17 @@ function App() {
   const [selectedWord, setSelectedWord] = useState<VocabularyItem | null>(null);
   const [showVocabModal, setShowVocabModal] = useState(false);
   const [showAddVocabModal, setShowAddVocabModal] = useState(false);
-  const [showBulkVocabModal, setShowBulkVocabModal] = useState(false);
   const [singleVocabWord, setSingleVocabWord] = useState('');
   const [singleVocabForms, setSingleVocabForms] = useState('');
   const [singleVocabMeaning, setSingleVocabMeaning] = useState('');
-  const [bulkVocabText, setBulkVocabText] = useState('');
+
+  // Flashcard practice states
+  const [flashcardView, setFlashcardView] = useState<'menu' | 'practice' | 'sessionComplete'>('menu');
+  const [flashcardPool, setFlashcardPool] = useState<VocabularyItem[]>([]);
+  const [currentFlashcardIndex, setCurrentFlashcardIndex] = useState(0);
+  const [isFlashcardFlipped, setIsFlashcardFlipped] = useState(false);
+  const [flashcardSessionSize, setFlashcardSessionSize] = useState(10);
+  const [flashcardSessionStats, setFlashcardSessionStats] = useState({ correct: 0, total: 0 });
 
   // Load data from localStorage with migration support
   useEffect(() => {
@@ -447,6 +468,10 @@ function App() {
                 word: vocab.word || '',
                 forms: Array.isArray(vocab.forms) ? vocab.forms : [vocab.word || ''],
                 meaning: vocab.meaning || '',
+                topicId: vocab.topicId || undefined,
+                timesAnswered: vocab.timesAnswered || 0,
+                timesCorrect: vocab.timesCorrect || 0,
+                lastReviewed: vocab.lastReviewed || null,
                 createdAt: vocab.createdAt || new Date().toISOString()
               };
             });
@@ -624,48 +649,200 @@ function App() {
   };
 
   const addBulkExercisesFromText = () => {
-    if (!bulkExercisesText.trim() || !selectedTopicId) return;
+    if (!bulkExercisesText.trim()) return;
     
-    const parsedExercises = parseMultipleExercises(bulkExercisesText);
-    if (parsedExercises.length === 0) {
-      alert('Could not parse any exercises. Please check the format.');
+    try {
+      // Try parsing as JSON first
+      const jsonData = JSON.parse(bulkExercisesText);
+      addBulkFromJSON(jsonData);
       return;
-    }
-    
-    const newExercises: Exercise[] = parsedExercises.map((parsed, exIndex) => {
-      const newQuestions: Question[] = [];
+    } catch {
+      // Not JSON, fallback to text format
+      if (!selectedTopicId) {
+        alert('Please select a topic first, or use JSON format with topic metadata.');
+        return;
+      }
       
-      parsed.questions.forEach((line, qIndex) => {
-        const parsedQ = parseQuestion(line);
-        if (parsedQ) {
-          newQuestions.push({
+      const parsedExercises = parseMultipleExercises(bulkExercisesText);
+      if (parsedExercises.length === 0) {
+        alert('Could not parse any exercises. Please check the format.');
+        return;
+      }
+      
+      const newExercises: Exercise[] = parsedExercises.map((parsed, exIndex) => {
+        const newQuestions: Question[] = [];
+        
+        parsed.questions.forEach((line, qIndex) => {
+          const parsedQ = parseQuestion(line);
+          if (parsedQ) {
+            newQuestions.push({
+              id: `${Date.now()}-ex${exIndex}-q${qIndex}-${Math.random()}`,
+              ...parsedQ,
+              timesAnswered: 0,
+              timesCorrect: 0,
+              lastReviewed: null,
+              createdAt: new Date().toISOString()
+            });
+          }
+        });
+        
+        return {
+          id: `exercise-${Date.now()}-${exIndex}`,
+          name: parsed.title,
+          description: parsed.description || undefined,
+          questions: newQuestions
+        };
+      });
+      
+      updateTopics(topics => topics.map(t => 
+        t.id === selectedTopicId
+          ? { ...t, exercises: [...t.exercises, ...newExercises] }
+          : t
+      ));
+      
+      setBulkExercisesText('');
+      setShowBulkExerciseModal(false);
+      alert(`Successfully added ${newExercises.length} exercises!`);
+    }
+  };
+
+  // Add bulk exercises from JSON format with optional topic creation
+  const addBulkFromJSON = (jsonData: any) => {
+    try {
+      let targetTopicId = selectedTopicId;
+      let topicCreated = false;
+      let newTopicToCreate: Topic | null = null;
+      
+      // Check if JSON includes topic metadata
+      if (jsonData.topic && jsonData.topic.title) {
+        // Create or find topic
+        const existingTopic = topics.find(t => 
+          t.title.toLowerCase() === jsonData.topic.title.toLowerCase()
+        );
+        
+        if (existingTopic) {
+          targetTopicId = existingTopic.id;
+        } else {
+          // Prepare new topic (will be added with exercises in single update)
+          targetTopicId = `topic-${Date.now()}`;
+          newTopicToCreate = {
+            id: targetTopicId,
+            title: jsonData.topic.title,
+            description: jsonData.topic.description || undefined,
+            createdAt: new Date().toISOString(),
+            exercises: []
+          };
+          topicCreated = true;
+        }
+      }
+      
+      if (!targetTopicId) {
+        alert('Please select a topic or include topic metadata in JSON.');
+        return;
+      }
+      
+      // Parse exercises from JSON
+      const exercisesData = jsonData.exercises || [];
+      if (!Array.isArray(exercisesData) || exercisesData.length === 0) {
+        alert('No exercises found in JSON. Expected "exercises" array.');
+        return;
+      }
+      
+      const newExercises: Exercise[] = exercisesData.map((exData: any, exIndex: number) => {
+        const newQuestions: Question[] = (exData.questions || []).map((qData: any, qIndex: number) => {
+          // Handle both simplified JSON format and full format
+          let questionData: Partial<Question>;
+          
+          if (typeof qData === 'string') {
+            // Text format in JSON - parse it
+            const parsed = parseQuestion(qData);
+            if (!parsed) return null;
+            questionData = parsed;
+          } else {
+            // Full JSON format
+            questionData = {
+              type: qData.type || 'fill-blank',
+              text: qData.text || qData.question || '',
+              answer: qData.answer || '',
+              context: qData.context || qData.options?.join(', ') || undefined
+            };
+          }
+          
+          return {
             id: `${Date.now()}-ex${exIndex}-q${qIndex}-${Math.random()}`,
-            ...parsedQ,
+            type: questionData.type!,
+            text: questionData.text!,
+            answer: questionData.answer!,
+            context: questionData.context,
             timesAnswered: 0,
             timesCorrect: 0,
             lastReviewed: null,
             createdAt: new Date().toISOString()
-          });
-        }
+          };
+        }).filter((q: Question | null): q is Question => q !== null);
+        
+        return {
+          id: `exercise-${Date.now()}-${exIndex}`,
+          name: exData.name || exData.title || `Exercise ${exIndex + 1}`,
+          description: exData.description || undefined,
+          questions: newQuestions
+        };
       });
       
-      return {
-        id: `exercise-${Date.now()}-${exIndex}`,
-        name: parsed.title,
-        description: parsed.description || undefined,
-        questions: newQuestions
-      };
-    });
-    
-    updateTopics(topics => topics.map(t => 
-      t.id === selectedTopicId
-        ? { ...t, exercises: [...t.exercises, ...newExercises] }
-        : t
-    ));
-    
-    setBulkExercisesText('');
-    setShowBulkExerciseModal(false);
-    alert(`Successfully added ${newExercises.length} exercises!`);
+      // Update topics: either add new topic with exercises OR add exercises to existing topic
+      if (newTopicToCreate) {
+        // Add new topic with exercises in single update
+        setTopics(prev => [...prev, { ...newTopicToCreate!, exercises: newExercises }]);
+      } else {
+        // Add exercises to existing topic
+        updateTopics(topics => topics.map(t => 
+          t.id === targetTopicId
+            ? { ...t, exercises: [...t.exercises, ...newExercises] }
+            : t
+        ));
+      }
+      
+      // Import vocabulary if included in JSON
+      if (jsonData.vocabulary && Array.isArray(jsonData.vocabulary)) {
+        const newVocab: VocabularyItem[] = jsonData.vocabulary.map((item: any, index: number) => ({
+          id: `vocab-${Date.now()}-${index}`,
+          word: item.word,
+          forms: item.forms || [item.word],
+          meaning: item.meaning,
+          topicId: targetTopicId,
+          timesAnswered: item.timesAnswered || 0,
+          timesCorrect: item.timesCorrect || 0,
+          lastReviewed: item.lastReviewed || null,
+          createdAt: new Date().toISOString()
+        }));
+        
+        setVocabulary(prev => [...prev, ...newVocab]);
+      }
+      
+      // Select the topic if new
+      if (topicCreated) {
+        setSelectedTopicId(targetTopicId);
+      }
+      
+      setBulkExercisesText('');
+      setShowBulkExerciseModal(false);
+      
+      const vocabCount = jsonData.vocabulary?.length || 0;
+      const message = topicCreated 
+        ? `Created topic and added ${newExercises.length} exercises${vocabCount > 0 ? ` + ${vocabCount} vocabulary words` : ''}!`
+        : `Successfully added ${newExercises.length} exercises${vocabCount > 0 ? ` + ${vocabCount} vocabulary words` : ''}!`;
+      alert(message);
+      
+    } catch (error) {
+      console.error('JSON parse error:', error);
+      alert('Error parsing JSON. Please check the format:\n\n' + 
+            'Expected structure:\n' +
+            '{\n' +
+            '  "topic": {"title": "Topic Name", "description": "..."},\n' +
+            '  "exercises": [{name: "Ex1", questions: [...]}],\n' +
+            '  "vocabulary": [{word: "...", forms: [...], meaning: "..."}]\n' +
+            '}');
+    }
   };
 
   // Export all data to JSON file
@@ -1117,6 +1294,59 @@ function App() {
     return pool.sort(() => Math.random() - 0.5);
   };
 
+  // Create flashcard session pool using SRS algorithm
+  const createFlashcardPool = (vocabItems: VocabularyItem[], size: number): VocabularyItem[] => {
+    // Filter vocabulary that is due for review
+    const dueVocab = vocabItems.filter(v => isDueForReview(v.timesAnswered, v.timesCorrect, v.lastReviewed));
+    
+    // Group by mastery level
+    const newV = dueVocab.filter(v => getMasteryLevel(v.timesAnswered, v.timesCorrect) === 'new');
+    const weak = dueVocab.filter(v => getMasteryLevel(v.timesAnswered, v.timesCorrect) === 'weak');
+    const middle = dueVocab.filter(v => getMasteryLevel(v.timesAnswered, v.timesCorrect) === 'middle');
+    const mastered = dueVocab.filter(v => getMasteryLevel(v.timesAnswered, v.timesCorrect) === 'mastered');
+
+    const pool: VocabularyItem[] = [];
+    const usedIds = new Set<string>();
+
+    const addFromCategory = (category: VocabularyItem[], maxCount: number): number => {
+      const available = category.filter(v => !usedIds.has(v.id));
+      const toAdd = Math.min(maxCount, available.length);
+      
+      for (let i = 0; i < toAdd; i++) {
+        if (available.length === 0) break;
+        const randomIndex = Math.floor(Math.random() * available.length);
+        const item = available[randomIndex];
+        pool.push(item);
+        usedIds.add(item.id);
+        available.splice(randomIndex, 1);
+      }
+      
+      return toAdd;
+    };
+
+    // Priority: New > Weak > Learning > Mastered
+    let remaining = size;
+    
+    if (remaining > 0 && newV.length > 0) {
+      remaining -= addFromCategory(newV, remaining);
+    }
+    
+    if (remaining > 0 && weak.length > 0) {
+      remaining -= addFromCategory(weak, remaining);
+    }
+    
+    if (remaining > 0 && middle.length > 0) {
+      remaining -= addFromCategory(middle, remaining);
+    }
+    
+    if (remaining > 0 && mastered.length > 0) {
+      remaining -= addFromCategory(mastered, remaining);
+    }
+
+    // Shuffle
+    return pool.sort(() => Math.random() - 0.5);
+  };
+
   // ========== VOCABULARY CRUD FUNCTIONS ==========
   
   const addSingleVocab = () => {
@@ -1135,6 +1365,10 @@ function App() {
       word: singleVocabWord.trim(),
       forms: forms.length > 0 ? forms : [singleVocabWord.trim()],
       meaning: singleVocabMeaning.trim(),
+      topicId: selectedTopicId || undefined,
+      timesAnswered: 0,
+      timesCorrect: 0,
+      lastReviewed: null,
       createdAt: new Date().toISOString()
     };
     
@@ -1143,33 +1377,6 @@ function App() {
     setSingleVocabForms('');
     setSingleVocabMeaning('');
     setShowAddVocabModal(false);
-  };
-
-  const addBulkVocab = () => {
-    if (!bulkVocabText.trim()) return;
-    
-    try {
-      const parsed = JSON.parse(bulkVocabText);
-      
-      if (parsed.vocabulary && Array.isArray(parsed.vocabulary)) {
-        const newVocab: VocabularyItem[] = parsed.vocabulary.map((item: any, index: number) => ({
-          id: `vocab-${Date.now()}-${index}`,
-          word: item.word,
-          forms: item.forms || [item.word],
-          meaning: item.meaning,
-          createdAt: new Date().toISOString()
-        }));
-        
-        setVocabulary([...vocabulary, ...newVocab]);
-        setBulkVocabText('');
-        setShowBulkVocabModal(false);
-        alert(`Successfully imported ${newVocab.length} vocabulary words!`);
-      } else {
-        alert('Invalid format. Please provide JSON with "vocabulary" array.');
-      }
-    } catch (e) {
-      alert('Invalid JSON format. Please check your input.');
-    }
   };
 
   const deleteVocab = (vocabId: string) => {
@@ -1185,9 +1392,14 @@ function App() {
       return <span>{text}</span>;
     }
 
+    // Filter vocabulary by current topic when in practice mode
+    const relevantVocabulary = view === 'practice' && selectedTopicId
+      ? vocabulary.filter(v => v.topicId === selectedTopicId || !v.topicId) // Include topic vocab + legacy vocab without topicId
+      : vocabulary; // Use all vocabulary in other views
+
     // Create a map of all forms to their vocabulary items
     const formToVocab = new Map<string, VocabularyItem>();
-    vocabulary.forEach(vocab => {
+    relevantVocabulary.forEach(vocab => {
       vocab.forms.forEach(form => {
         const normalizedForm = form.toLowerCase().replace(/^(der|die|das|den|dem|des|ein|eine|einem|einen|einer)\s+/, '');
         formToVocab.set(normalizedForm, vocab);
@@ -1247,6 +1459,8 @@ function App() {
     setSessionStats({ correct: 0, total: 0 });
     setCurrentQuestion(pool[0]);
     setUserAnswer('');
+    setConversationTurnIndex(0);
+    setConversationAnswers([]);
     setFeedback(null);
     setView('practice');
   };
@@ -1395,6 +1609,8 @@ function App() {
     setCurrentQuestionIndex(nextIndex);
     setCurrentQuestion(sessionPool[nextIndex]);
     setUserAnswer('');
+    setConversationTurnIndex(0);
+    setConversationAnswers([]);
     setFeedback(null);
   };
 
@@ -1408,7 +1624,80 @@ function App() {
     setSessionPool([]);
     setCurrentQuestionIndex(0);
     setUserAnswer('');
+    setConversationTurnIndex(0);
+    setConversationAnswers([]);
     setFeedback(null);
+  };
+
+  // ========== FLASHCARD PRACTICE FUNCTIONS ==========
+
+  const startFlashcardPractice = () => {
+    if (!selectedTopicId) return;
+    
+    // Get vocabulary for this topic
+    const topicVocab = vocabulary.filter(v => v.topicId === selectedTopicId);
+    
+    if (topicVocab.length === 0) {
+      alert('No vocabulary found for this topic. Add some vocabulary first!');
+      return;
+    }
+
+    // Create session pool using SRS
+    const pool = createFlashcardPool(topicVocab, Math.min(flashcardSessionSize, topicVocab.length));
+    
+    if (pool.length === 0) {
+      alert('No vocabulary is due for review right now. Come back later!');
+      return;
+    }
+
+    setFlashcardPool(pool);
+    setCurrentFlashcardIndex(0);
+    setIsFlashcardFlipped(false);
+    setFlashcardSessionStats({ correct: 0, total: 0 });
+    setFlashcardView('practice');
+  };
+
+  const flipFlashcard = () => {
+    setIsFlashcardFlipped(!isFlashcardFlipped);
+  };
+
+  const handleFlashcardResponse = (wasCorrect: boolean) => {
+    if (!selectedTopicId || flashcardPool.length === 0) return;
+    
+    const currentCard = flashcardPool[currentFlashcardIndex];
+    
+    // Update vocabulary stats
+    setVocabulary(vocab => vocab.map(v =>
+      v.id === currentCard.id
+        ? {
+            ...v,
+            timesAnswered: v.timesAnswered + 1,
+            timesCorrect: v.timesCorrect + (wasCorrect ? 1 : 0),
+            lastReviewed: new Date().toISOString()
+          }
+        : v
+    ));
+
+    // Update session stats
+    setFlashcardSessionStats(prev => ({
+      correct: prev.correct + (wasCorrect ? 1 : 0),
+      total: prev.total + 1
+    }));
+
+    // Move to next card or end session
+    if (currentFlashcardIndex + 1 >= flashcardPool.length) {
+      setFlashcardView('sessionComplete');
+    } else {
+      setCurrentFlashcardIndex(currentFlashcardIndex + 1);
+      setIsFlashcardFlipped(false);
+    }
+  };
+
+  const returnToTopicMenu = () => {
+    setFlashcardView('menu');
+    setFlashcardPool([]);
+    setCurrentFlashcardIndex(0);
+    setIsFlashcardFlipped(false);
   };
 
   const resetProgress = () => {
@@ -1614,69 +1903,52 @@ function App() {
                 </label>
               </div>
 
-              {/* Vocabulary Management */}
+              {/* Create Topic Button - Always Available */}
               <div className="mb-4 pb-4 border-b">
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">📚 Vocabulary ({vocabulary.length})</h3>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setShowAddVocabModal(true)}
-                    className="w-full bg-teal-600 text-white px-3 py-2 rounded-md text-sm hover:bg-teal-700 flex items-center justify-center"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Word
-                  </button>
-                  <button
-                    onClick={() => setShowBulkVocabModal(true)}
-                    className="w-full bg-cyan-600 text-white px-3 py-2 rounded-md text-sm hover:bg-cyan-700 flex items-center justify-center"
-                  >
-                    <Upload className="w-4 h-4 mr-1" />
-                    Bulk Import
-                  </button>
-                  {vocabulary.length > 0 && (
-                    <div className="max-h-32 overflow-y-auto bg-gray-50 rounded p-2 space-y-1">
-                      {vocabulary.slice(0, 5).map(vocab => (
-                        <div key={vocab.id} className="flex items-center justify-between text-xs">
-                          <span className="text-gray-700 truncate flex-1">{vocab.word}</span>
-                          <button
-                            onClick={() => deleteVocab(vocab.id)}
-                            className="text-red-500 hover:text-red-700 ml-2"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                      {vocabulary.length > 5 && (
-                        <p className="text-xs text-gray-500 italic">+{vocabulary.length - 5} more...</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Create Topic */}
-              <div className="mb-4 pb-4 border-b">
-                <input
-                  type="text"
-                  placeholder="New topic (e.g., telc B1 Dative)"
-                  value={newTopicTitle}
-                  onChange={(e) => setNewTopicTitle(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && createTopic()}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2 bg-white text-gray-900"
-                />
-                <textarea
-                  placeholder="Topic description (optional)"
-                  value={newTopicDescription}
-                  onChange={(e) => setNewTopicDescription(e.target.value)}
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2 resize-none bg-white text-gray-900"
-                />
                 <button
-                  onClick={createTopic}
-                  className="w-full bg-indigo-600 text-white px-3 py-2 rounded-md text-sm hover:bg-indigo-700 flex items-center justify-center"
+                  onClick={() => setShowBulkExerciseModal(true)}
+                  className="w-full bg-blue-600 text-white px-3 py-2 rounded-md text-sm hover:bg-blue-700 flex items-center justify-center"
                 >
                   <Plus className="w-4 h-4 mr-1" />
-                  Create Topic
+                  📚 Create Topic
                 </button>
+                <p className="text-xs text-gray-500 mt-2">
+                  Import exercises + vocabulary from AI-generated JSON
+                </p>
+              </div>
+
+              {/* Manual Topic Creation (Optional) */}
+              <div className="mb-4 pb-4 border-b">
+                <details className="group">
+                  <summary className="cursor-pointer text-sm font-semibold text-gray-700 mb-2 flex items-center justify-between hover:text-gray-900">
+                    <span>Or Create Empty Topic</span>
+                    <span className="text-gray-400 group-open:rotate-90 transition-transform">▶</span>
+                  </summary>
+                  <div className="mt-2 space-y-2">
+                    <input
+                      type="text"
+                      placeholder="New topic (e.g., telc B1 Dative)"
+                      value={newTopicTitle}
+                      onChange={(e) => setNewTopicTitle(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && createTopic()}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white text-gray-900"
+                    />
+                    <textarea
+                      placeholder="Topic description (optional)"
+                      value={newTopicDescription}
+                      onChange={(e) => setNewTopicDescription(e.target.value)}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm resize-none bg-white text-gray-900"
+                    />
+                    <button
+                      onClick={createTopic}
+                      className="w-full bg-indigo-600 text-white px-3 py-2 rounded-md text-sm hover:bg-indigo-700 flex items-center justify-center"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Create Empty Topic
+                    </button>
+                  </div>
+                </details>
               </div>
 
               {/* Topics List */}
@@ -1788,9 +2060,158 @@ function App() {
                     className="w-full bg-blue-600 text-white px-3 py-2 rounded-md text-sm hover:bg-blue-700 flex items-center justify-center"
                   >
                     <Plus className="w-4 h-4 mr-1" />
-                    Add Multiple Exercises
+                    📚 Create Topic
+                  </button>
+                  
+                  {/* Vocabulary Session Size Control */}
+                  <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Flashcard Session Size
+                    </label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="50"
+                      value={flashcardSessionSize}
+                      onChange={(e) => setFlashcardSessionSize(Math.max(5, Math.min(50, parseInt(e.target.value) || 10)))}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm bg-white text-gray-900"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Number of vocabulary cards per session (5-50)
+                    </p>
+                  </div>
+                  
+                  {/* Vocabulary Practice Button */}
+                  <button
+                    onClick={() => {
+                      const topicVocab = vocabulary.filter(v => v.topicId === selectedTopicId);
+                      if (topicVocab.length === 0) {
+                        alert('No vocabulary for this topic yet. Add vocabulary words first!');
+                      } else {
+                        startFlashcardPractice();
+                        setMobileView('content');
+                      }
+                    }}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-2 rounded-md text-sm hover:from-purple-700 hover:to-pink-700 flex items-center justify-center font-semibold"
+                  >
+                    <BookOpen className="w-4 h-4 mr-1" />
+                    📚 Practice Vocabulary
                   </button>
                 </div>
+
+                {/* Topic Vocabulary Section */}
+                {(() => {
+                  const topicVocab = vocabulary.filter(v => v.topicId === selectedTopicId);
+                  
+                  // Calculate vocabulary stats
+                  const vocabStats = {
+                    total: topicVocab.length,
+                    mastered: topicVocab.filter(v => getMasteryLevel(v.timesAnswered, v.timesCorrect) === 'mastered').length,
+                    learning: topicVocab.filter(v => getMasteryLevel(v.timesAnswered, v.timesCorrect) === 'middle').length,
+                    weak: topicVocab.filter(v => getMasteryLevel(v.timesAnswered, v.timesCorrect) === 'weak').length,
+                    new: topicVocab.filter(v => getMasteryLevel(v.timesAnswered, v.timesCorrect) === 'new').length,
+                    dueCount: topicVocab.filter(v => {
+                      const info = getMasteryInfo(v.timesAnswered, v.timesCorrect, v.lastReviewed);
+                      return info.isDue;
+                    }).length,
+                    correctRate: topicVocab.length > 0 && topicVocab.some(v => v.timesAnswered > 0)
+                      ? Math.round((topicVocab.reduce((sum, v) => sum + v.timesCorrect, 0) / topicVocab.reduce((sum, v) => sum + v.timesAnswered, 0)) * 100)
+                      : 0
+                  };
+
+                  return (
+                    <div className="mb-4 pb-4 border-b">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-2">
+                        📚 Topic Vocabulary ({topicVocab.length})
+                      </h3>
+
+                      {/* Vocabulary Stats */}
+                      {topicVocab.length > 0 && (
+                        <div className="bg-purple-50 rounded-lg p-3 mb-2">
+                          <div className="grid grid-cols-5 gap-1 mb-2">
+                            <div className="text-center">
+                              <div className="text-xs font-bold text-green-600">{vocabStats.mastered}</div>
+                              <div className="text-xs text-gray-600">✓</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-xs font-bold text-yellow-600">{vocabStats.learning}</div>
+                              <div className="text-xs text-gray-600">📚</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-xs font-bold text-red-600">{vocabStats.weak}</div>
+                              <div className="text-xs text-gray-600">⚠️</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-xs font-bold text-gray-600">{vocabStats.new}</div>
+                              <div className="text-xs text-gray-600">🆕</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-xs font-bold text-orange-600">{vocabStats.dueCount}</div>
+                              <div className="text-xs text-gray-600">⏰</div>
+                            </div>
+                          </div>
+                          {vocabStats.correctRate > 0 && (
+                            <div className="text-center text-xs">
+                              <span className="font-semibold text-purple-600">{vocabStats.correctRate}%</span>
+                              <span className="text-gray-600"> accuracy</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <button
+                          onClick={() => setShowAddVocabModal(true)}
+                          className="w-full bg-teal-600 text-white px-3 py-2 rounded-md text-sm hover:bg-teal-700 flex items-center justify-center"
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add Word
+                        </button>
+                        {topicVocab.length > 0 && (
+                          <div className="max-h-40 overflow-y-auto bg-gray-50 rounded p-2 space-y-1">
+                            {topicVocab.map(vocab => {
+                              const masteryLevel = getMasteryLevel(vocab.timesAnswered, vocab.timesCorrect);
+                              const masteryInfo = getMasteryInfo(vocab.timesAnswered, vocab.timesCorrect, vocab.lastReviewed);
+                              return (
+                                <div key={vocab.id} className="flex items-center justify-between text-xs bg-white rounded p-1.5 border border-gray-200">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-gray-700 font-medium truncate">{vocab.word}</span>
+                                      <span className={`text-xs px-1.5 py-0.5 rounded ${getMasteryColor(masteryLevel)}`}>
+                                        {masteryLevel === 'mastered' ? '✓' : masteryLevel === 'middle' ? '📚' : masteryLevel === 'weak' ? '⚠️' : '🆕'}
+                                      </span>
+                                    </div>
+                                    <span className="text-gray-500 text-xs block truncate">{vocab.meaning}</span>
+                                    {vocab.timesAnswered > 0 && (
+                                      <div className="flex items-center gap-2 mt-0.5">
+                                        <span className="text-xs text-gray-500">
+                                          {vocab.timesCorrect}/{vocab.timesAnswered}
+                                        </span>
+                                        {masteryInfo.isDue && (
+                                          <span className="text-xs text-orange-600">⏰ Due</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteVocab(vocab.id);
+                                    }}
+                                    className="text-red-500 hover:text-red-700 ml-2 flex-shrink-0"
+                                    title="Delete vocabulary"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Exercises List */}
                 <div className="space-y-2">
@@ -1927,7 +2348,317 @@ function App() {
 
           {/* Main Content (Hidden on mobile unless active) */}
           <div className={`md:col-span-6 ${mobileView !== 'content' ? 'hidden md:block' : 'block'}`}>
-            {!selectedExercise ? (
+            {/* Flashcard Practice View - Show independently of selected exercise */}
+            {flashcardView === 'practice' && flashcardPool.length > 0 ? (
+              <div className="bg-white rounded-lg shadow-lg p-6">
+                {/* Header with enhanced progress */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-2xl font-bold text-gray-800">📚 Vocabulary Practice</h2>
+                    <button
+                      onClick={returnToTopicMenu}
+                      className="text-gray-500 hover:text-gray-700 text-sm"
+                    >
+                      End Session
+                    </button>
+                  </div>
+                  
+                  {/* Progress bar */}
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-gray-600">
+                        Card <span className="font-semibold">{currentFlashcardIndex + 1}</span> of {flashcardPool.length}
+                      </span>
+                      <span className="text-gray-600">
+                        Session: <span className="font-semibold text-green-600">{flashcardSessionStats.correct}</span> / 
+                        <span className="font-semibold text-red-600">{flashcardSessionStats.total - flashcardSessionStats.correct}</span>
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2.5 rounded-full transition-all duration-300"
+                        style={{ width: `${((currentFlashcardIndex + 1) / flashcardPool.length) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Current word mastery badge */}
+                  {(() => {
+                    const card = flashcardPool[currentFlashcardIndex];
+                    const masteryLevel = getMasteryLevel(card.timesAnswered, card.timesCorrect);
+                    const masteryInfo = getMasteryInfo(card.timesAnswered, card.timesCorrect, card.lastReviewed);
+                    return (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`text-xs px-3 py-1 rounded-full font-medium ${getMasteryColor(masteryLevel)}`}>
+                          {masteryLevel === 'mastered' ? '⭐ Mastered' : 
+                           masteryLevel === 'middle' ? '📚 Learning' : 
+                           masteryLevel === 'weak' ? '⚠️ Weak' : '🆕 New'}
+                        </span>
+                        {card.timesAnswered > 0 && (
+                          <span className="text-xs text-gray-600">
+                            {card.timesCorrect}/{card.timesAnswered} correct 
+                            ({Math.round((card.timesCorrect / card.timesAnswered) * 100)}%)
+                          </span>
+                        )}
+                        {masteryInfo.isDue && (
+                          <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 flex items-center">
+                            <Clock className="w-3 h-3 mr-1" />
+                            Due for review
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Flashcard */}
+                <div className="mb-6">
+                  <div 
+                    className="relative w-full h-80 sm:h-96 cursor-pointer perspective-1000"
+                    onClick={isFlashcardFlipped ? undefined : flipFlashcard}
+                    style={{ perspective: '1000px' }}
+                  >
+                    <div 
+                      className={`relative w-full h-full transition-transform duration-500 transform-style-3d ${
+                        isFlashcardFlipped ? 'rotate-y-180' : ''
+                      }`}
+                      style={{
+                        transformStyle: 'preserve-3d',
+                        transform: isFlashcardFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+                      }}
+                    >
+                      {/* Front of card - Word */}
+                      <div 
+                        className="absolute w-full h-full backface-hidden bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-2xl flex flex-col items-center justify-center p-8"
+                        style={{ backfaceVisibility: 'hidden' }}
+                      >
+                        <div className="text-white text-center">
+                          <div className="text-sm font-semibold mb-4 opacity-80">GERMAN WORD</div>
+                          <div className="text-4xl sm:text-5xl font-bold mb-6">
+                            {flashcardPool[currentFlashcardIndex].word}
+                          </div>
+                          {flashcardPool[currentFlashcardIndex].forms.length > 1 && (
+                            <div className="text-lg opacity-90 space-y-1">
+                              <div className="text-sm font-semibold mb-2">Forms:</div>
+                              {flashcardPool[currentFlashcardIndex].forms.map((form, idx) => (
+                                <div key={idx}>{form}</div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="mt-8 text-sm opacity-70">
+                            {!isFlashcardFlipped && '👆 Click to reveal meaning'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Back of card - Meaning */}
+                      <div 
+                        className="absolute w-full h-full backface-hidden bg-gradient-to-br from-green-500 to-teal-600 rounded-2xl shadow-2xl flex items-center justify-center p-8"
+                        style={{ 
+                          backfaceVisibility: 'hidden',
+                          transform: 'rotateY(180deg)'
+                        }}
+                      >
+                        <div className="text-white text-center">
+                          <div className="text-sm font-semibold mb-4 opacity-80">MEANING</div>
+                          <div className="text-3xl sm:text-4xl font-bold">
+                            {flashcardPool[currentFlashcardIndex].meaning}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Self-assessment buttons with enhanced UI */}
+                {isFlashcardFlipped ? (
+                  <div className="space-y-3">
+                    <div className="text-center text-sm font-medium text-gray-600 mb-2">
+                      Did you remember this word correctly?
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        onClick={() => handleFlashcardResponse(false)}
+                        className="group relative bg-gradient-to-br from-red-500 to-red-600 text-white px-6 py-5 rounded-xl hover:from-red-600 hover:to-red-700 font-semibold text-lg transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                      >
+                        <div className="flex flex-col items-center">
+                          <div className="text-3xl mb-1">❌</div>
+                          <div>I Forgot</div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => handleFlashcardResponse(true)}
+                        className="group relative bg-gradient-to-br from-green-500 to-green-600 text-white px-6 py-5 rounded-xl hover:from-green-600 hover:to-green-700 font-semibold text-lg transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                      >
+                        <div className="flex flex-col items-center">
+                          <div className="text-3xl mb-1">✅</div>
+                          <div>I Remembered</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <button
+                      onClick={flipFlashcard}
+                      className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white px-8 py-4 rounded-xl hover:from-indigo-600 hover:to-purple-700 font-semibold text-lg transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="text-2xl">🔄</span>
+                        <span>Flip Card</span>
+                      </div>
+                    </button>
+                  </div>
+                )}
+
+                {/* Enhanced stats with milestone progress */}
+                {flashcardPool[currentFlashcardIndex].timesAnswered > 0 && (
+                  <div className="mt-6 p-5 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border border-purple-200">
+                    <div className="text-center">
+                      <div className="text-xs font-semibold text-purple-700 mb-2 uppercase tracking-wide">
+                        Word Performance
+                      </div>
+                      <div className="text-lg font-bold text-gray-800 mb-1">
+                        {flashcardPool[currentFlashcardIndex].timesCorrect}/{flashcardPool[currentFlashcardIndex].timesAnswered} correct
+                        <span className="text-sm font-normal text-gray-600 ml-2">
+                          ({Math.round((flashcardPool[currentFlashcardIndex].timesCorrect / flashcardPool[currentFlashcardIndex].timesAnswered) * 100)}%)
+                        </span>
+                      </div>
+                      <div className="text-xs text-purple-600 font-medium">
+                        {getMasteryInfo(
+                          flashcardPool[currentFlashcardIndex].timesAnswered, 
+                          flashcardPool[currentFlashcardIndex].timesCorrect, 
+                          flashcardPool[currentFlashcardIndex].lastReviewed
+                        ).nextMilestone}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : flashcardView === 'sessionComplete' ? (
+              <div className="bg-white rounded-lg shadow-lg p-8">
+                <div className="text-center mb-6">
+                  {flashcardSessionStats.total > 0 && flashcardSessionStats.correct / flashcardSessionStats.total >= 0.8 ? (
+                    <div className="text-7xl mb-4 animate-bounce">🎉</div>
+                  ) : flashcardSessionStats.total > 0 && flashcardSessionStats.correct / flashcardSessionStats.total >= 0.6 ? (
+                    <div className="text-7xl mb-4">👍</div>
+                  ) : (
+                    <div className="text-7xl mb-4">💪</div>
+                  )}
+                  <h2 className="text-3xl font-bold text-gray-800 mb-2">Vocabulary Practice Complete!</h2>
+                  <p className="text-gray-600">Great job practicing your vocabulary!</p>
+                </div>
+
+                {/* Enhanced statistics */}
+                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 mb-6 border border-purple-200">
+                  <div className="grid grid-cols-3 gap-4 mb-5">
+                    <div className="text-center">
+                      <div className="text-4xl font-bold text-green-600">
+                        {flashcardSessionStats.correct}
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">✅ Remembered</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-4xl font-bold text-red-600">
+                        {flashcardSessionStats.total - flashcardSessionStats.correct}
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">❌ Forgot</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-4xl font-bold text-indigo-600">
+                        {flashcardSessionStats.total}
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">📚 Total</div>
+                    </div>
+                  </div>
+                  
+                  {/* Accuracy bar */}
+                  <div className="pt-5 border-t border-purple-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Session Accuracy</span>
+                      <span className="text-2xl font-bold text-purple-600">
+                        {flashcardSessionStats.total > 0 
+                          ? Math.round((flashcardSessionStats.correct / flashcardSessionStats.total) * 100) 
+                          : 0}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-4">
+                      <div
+                        className="bg-gradient-to-r from-purple-500 to-indigo-600 h-4 rounded-full transition-all flex items-center justify-end pr-2"
+                        style={{ 
+                          width: `${flashcardSessionStats.total > 0 
+                            ? Math.round((flashcardSessionStats.correct / flashcardSessionStats.total) * 100) 
+                            : 0}%` 
+                        }}
+                      >
+                        {flashcardSessionStats.total > 0 && 
+                         flashcardSessionStats.correct / flashcardSessionStats.total >= 0.15 && (
+                          <span className="text-xs text-white font-bold">
+                            {Math.round((flashcardSessionStats.correct / flashcardSessionStats.total) * 100)}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mastery breakdown */}
+                {(() => {
+                  const topicVocab = vocabulary.filter(v => v.topicId === selectedTopicId);
+                  const masteryBreakdown = {
+                    mastered: topicVocab.filter(v => getMasteryLevel(v.timesAnswered, v.timesCorrect) === 'mastered').length,
+                    learning: topicVocab.filter(v => getMasteryLevel(v.timesAnswered, v.timesCorrect) === 'middle').length,
+                    weak: topicVocab.filter(v => getMasteryLevel(v.timesAnswered, v.timesCorrect) === 'weak').length,
+                    new: topicVocab.filter(v => getMasteryLevel(v.timesAnswered, v.timesCorrect) === 'new').length,
+                  };
+                  return (
+                    <div className="bg-gray-50 rounded-xl p-6 mb-6">
+                      <h3 className="text-lg font-bold text-gray-800 mb-4 text-center">Overall Vocabulary Progress</h3>
+                      <div className="grid grid-cols-4 gap-3">
+                        <div className="text-center p-3 bg-green-100 rounded-lg border border-green-200">
+                          <div className="text-2xl font-bold text-green-700">{masteryBreakdown.mastered}</div>
+                          <div className="text-xs text-green-600 mt-1">⭐ Mastered</div>
+                        </div>
+                        <div className="text-center p-3 bg-yellow-100 rounded-lg border border-yellow-200">
+                          <div className="text-2xl font-bold text-yellow-700">{masteryBreakdown.learning}</div>
+                          <div className="text-xs text-yellow-600 mt-1">📚 Learning</div>
+                        </div>
+                        <div className="text-center p-3 bg-red-100 rounded-lg border border-red-200">
+                          <div className="text-2xl font-bold text-red-700">{masteryBreakdown.weak}</div>
+                          <div className="text-xs text-red-600 mt-1">⚠️ Weak</div>
+                        </div>
+                        <div className="text-center p-3 bg-gray-200 rounded-lg border border-gray-300">
+                          <div className="text-2xl font-bold text-gray-700">{masteryBreakdown.new}</div>
+                          <div className="text-xs text-gray-600 mt-1">🆕 New</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Action buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={startFlashcardPractice}
+                    className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-4 rounded-xl hover:from-purple-700 hover:to-indigo-700 font-semibold text-lg shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <span>🔄</span>
+                      <span>Practice Again</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={returnToTopicMenu}
+                    className="flex-1 bg-gray-200 text-gray-700 px-6 py-4 rounded-xl hover:bg-gray-300 font-semibold text-lg transition-all"
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <span>👈</span>
+                      <span>Back to Menu</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            ) : !selectedExercise ? (
               <div className="bg-white rounded-lg shadow-lg p-8 text-center">
                 <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-gray-700 mb-2">No Exercise Selected</h3>
@@ -2239,7 +2970,7 @@ function App() {
 
                     {/* Question Statement - Clearly visible and prominent */}
                     {/* Only show for types where question text is the main prompt, not part of the interface */}
-                    {!['error-correction', 'word-order', 'choice', 'match', 'order', 'cloze', 'dialogue'].includes(currentQuestion.type) && (
+                    {!['error-correction', 'word-order', 'choice', 'match', 'order', 'cloze', 'dialogue', 'conversation'].includes(currentQuestion.type) && (
                       <div className="mb-8 p-6 bg-white border-2 border-indigo-200 rounded-lg shadow-sm">
                         <div className="flex items-start mb-2">
                           <Target className="w-6 h-6 text-indigo-600 mr-3 mt-1 flex-shrink-0" />
@@ -2492,131 +3223,52 @@ function App() {
                         </div>
                       )}
 
-                      {/* Matching Exercise Type */}
+                      {/* Matching Exercise Type - Drag & Drop */}
                       {currentQuestion.type === 'match' && currentQuestion.context && (
-                        <div>
-                          <div className="bg-green-50 border border-green-300 rounded-lg p-4 mb-6">
-                            <p className="text-sm text-green-800">
-                              <strong>🔗 Matching Exercise:</strong> Match items by typing pairs (e.g., "item1-match1, item2-match2")
-                            </p>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 mb-6">
-                            <div>
-                              <label className="block text-sm font-semibold text-gray-700 mb-2">Column A:</label>
-                              <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
-                                {currentQuestion.text.split(',').map((item, idx) => (
-                                  <div key={idx} className="py-2 text-gray-900 font-medium">
-                                    {idx + 1}. {highlightVocabulary(item.trim(), handleWordClick)}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-semibold text-gray-700 mb-2">Column B:</label>
-                              <div className="bg-yellow-50 p-4 rounded-lg border-2 border-yellow-200">
-                                {currentQuestion.context.split(',').map((item, idx) => (
-                                  <div key={idx} className="py-2 text-gray-900 font-medium">
-                                    • {highlightVocabulary(item.trim(), handleWordClick)}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">Type your matches (comma-separated pairs):</label>
-                            <input
-                              type="text"
-                              value={userAnswer}
-                              onChange={(e) => setUserAnswer(e.target.value)}
-                              onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
-                              disabled={feedback !== null}
-                              placeholder="item1-match1, item2-match2, item3-match3..."
-                              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
-                              autoFocus
-                            />
-                          </div>
-                        </div>
+                        <MatchQuestion
+                          leftItems={currentQuestion.text.split(',').map(item => item.trim())}
+                          rightItems={currentQuestion.context.split(',').map(item => item.trim())}
+                          onSubmit={(matches) => {
+                            // Convert array to comma-separated string
+                            setUserAnswer(matches.join(', '));
+                            // Auto-submit after matching
+                            setTimeout(() => checkAnswer(), 100);
+                          }}
+                          disabled={feedback !== null}
+                          highlightVocabulary={highlightVocabulary}
+                          handleWordClick={handleWordClick}
+                        />
                       )}
 
-                      {/* Sentence Building/Order Type */}
+                      {/* Sentence Building/Order Type - Drag & Drop Sortable */}
                       {currentQuestion.type === 'order' && (
-                        <div>
-                          <div className="bg-indigo-50 border border-indigo-300 rounded-lg p-4 mb-6">
-                            <p className="text-sm text-indigo-800">
-                              <strong>🧩 Sentence Building:</strong> Build a correct German sentence from the words below.
-                            </p>
-                          </div>
-                          <div className="mb-4">
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">Available words:</label>
-                            <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
-                              {currentQuestion.text.split(/[/,]/).map((word, idx) => (
-                                <span
-                                  key={idx}
-                                  className="px-3 py-2 bg-white border-2 border-indigo-300 rounded-lg text-gray-900 font-medium shadow-sm"
-                                >
-                                  {highlightVocabulary(word.trim(), handleWordClick)}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">Type the complete sentence:</label>
-                            <input
-                              type="text"
-                              value={userAnswer}
-                              onChange={(e) => setUserAnswer(e.target.value)}
-                              onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
-                              disabled={feedback !== null}
-                              placeholder="Type the sentence using all words..."
-                              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
-                              autoFocus
-                            />
-                          </div>
-                        </div>
+                        <OrderQuestion
+                          words={currentQuestion.text.split(/[/,]/).map(word => word.trim())}
+                          onSubmit={(sentence) => {
+                            setUserAnswer(sentence);
+                            // Auto-submit after building sentence
+                            setTimeout(() => checkAnswer(), 100);
+                          }}
+                          disabled={feedback !== null}
+                          highlightVocabulary={highlightVocabulary}
+                          handleWordClick={handleWordClick}
+                        />
                       )}
 
-                      {/* Cloze Passage Type */}
+                      {/* Cloze Passage Type - Inline Inputs */}
                       {currentQuestion.type === 'cloze' && (
-                        <div>
-                          <div className="bg-orange-50 border border-orange-300 rounded-lg p-4 mb-6">
-                            <p className="text-sm text-orange-800">
-                              <strong>📄 Cloze Passage:</strong> Fill in the blanks in the text passage.
-                              Enter answers separated by commas.
-                            </p>
-                          </div>
-                          <div className="mb-4">
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">Passage:</label>
-                            <div className="bg-white p-5 rounded-lg border-2 border-gray-300">
-                              <div className="text-lg leading-relaxed whitespace-pre-wrap text-gray-900">
-                                {currentQuestion.text.split(/\{blank\d*\}/).map((part, idx, arr) => (
-                                  <span key={idx}>
-                                    {highlightVocabulary(part, handleWordClick)}
-                                    {idx < arr.length - 1 && (
-                                      <span className="inline-block mx-1 px-3 py-1 bg-yellow-100 border-2 border-yellow-400 rounded">
-                                        <span className="text-yellow-700 font-semibold">____{idx + 1}____</span>
-                                      </span>
-                                    )}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                              Fill in the blanks (comma-separated, in order):
-                            </label>
-                            <input
-                              type="text"
-                              value={userAnswer}
-                              onChange={(e) => setUserAnswer(e.target.value)}
-                              onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
-                              disabled={feedback !== null}
-                              placeholder="answer1, answer2, answer3..."
-                              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
-                              autoFocus
-                            />
-                          </div>
-                        </div>
+                        <ClozeQuestion
+                          passage={currentQuestion.text}
+                          onSubmit={(answers) => {
+                            // Convert array to comma-separated string
+                            setUserAnswer(answers.join(', '));
+                            // Auto-submit after filling all blanks
+                            setTimeout(() => checkAnswer(), 100);
+                          }}
+                          disabled={feedback !== null}
+                          highlightVocabulary={highlightVocabulary}
+                          handleWordClick={handleWordClick}
+                        />
                       )}
 
                       {/* Dialogue Practice Type */}
@@ -2652,6 +3304,252 @@ function App() {
                           </div>
                         </div>
                       )}
+
+                      {/* Interactive Conversation Type */}
+                      {currentQuestion.type === 'conversation' && currentQuestion.context && (() => {
+                        // Parse conversation turns from context
+                        // Format: "Turn1: Speaker: Text with {blank}|Turn2: Speaker: Reply with {blank}|..."
+                        const turns = currentQuestion.context.split('|').map(turn => {
+                          const [speaker, ...textParts] = turn.split(':');
+                          return {
+                            speaker: speaker.trim(),
+                            text: textParts.join(':').trim()
+                          };
+                        });
+                        
+                        const currentTurn = turns[conversationTurnIndex];
+                        const isLastTurn = conversationTurnIndex >= turns.length - 1;
+                        
+                        // Parse blanks in current turn
+                        const blanks = currentTurn.text.match(/\{blank\}/g) || [];
+                        const numBlanks = blanks.length;
+                        
+                        const handleConversationSubmit = () => {
+                          if (!userAnswer.trim()) return;
+                          
+                          // Save the answer for this turn
+                          const newAnswers = [...conversationAnswers, userAnswer];
+                          setConversationAnswers(newAnswers);
+                          
+                          if (isLastTurn) {
+                            // Last turn - check all answers
+                            const correctAnswers = Array.isArray(currentQuestion.answer) 
+                              ? currentQuestion.answer 
+                              : [currentQuestion.answer];
+                            
+                            // Check if all answers match
+                            const allCorrect = newAnswers.every((ans, idx) => {
+                              const correctAns = correctAnswers[idx] || '';
+                              const userAns = ans.trim().toLowerCase();
+                              const correct = correctAns.toLowerCase();
+                              
+                              // Handle multiple blanks per turn (comma-separated)
+                              if (userAns.includes(',') || correct.includes(',')) {
+                                const userParts = userAns.split(',').map(p => p.trim());
+                                const correctParts = correct.split(',').map(p => p.trim());
+                                return userParts.every((up, i) => up === correctParts[i]);
+                              }
+                              
+                              return userAns === correct;
+                            });
+                            
+                            setFeedback({ 
+                              correct: allCorrect, 
+                              correctAnswer: correctAnswers 
+                            });
+                            
+                            // Update stats
+                            setSessionStats(prev => ({
+                              correct: prev.correct + (allCorrect ? 1 : 0),
+                              total: prev.total + 1
+                            }));
+                            
+                            // Update question stats
+                            if (!selectedTopicId || !selectedExerciseId) return;
+                            
+                            updateTopics(topics => topics.map(t => 
+                              t.id === selectedTopicId
+                                ? {
+                                    ...t,
+                                    exercises: t.exercises.map(e => 
+                                      e.id === selectedExerciseId
+                                        ? {
+                                            ...e,
+                                            questions: e.questions.map(q =>
+                                              q.id === currentQuestion.id
+                                                ? {
+                                                    ...q,
+                                                    timesAnswered: q.timesAnswered + 1,
+                                                    timesCorrect: q.timesCorrect + (allCorrect ? 1 : 0),
+                                                    lastReviewed: new Date().toISOString()
+                                                  }
+                                                : q
+                                            )
+                                          }
+                                        : e
+                                    )
+                                  }
+                                : t
+                            ));
+                          } else {
+                            // Move to next turn
+                            setConversationTurnIndex(conversationTurnIndex + 1);
+                            setUserAnswer('');
+                          }
+                        };
+                        
+                        return (
+                          <div>
+                            <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-300 rounded-lg p-4 mb-6">
+                              <p className="text-sm text-purple-800">
+                                <strong>🗨️ Interactive Conversation:</strong> Fill in the blanks to continue the conversation. 
+                                <span className="ml-2 text-purple-600 font-semibold">
+                                  Turn {conversationTurnIndex + 1} of {turns.length}
+                                </span>
+                              </p>
+                            </div>
+                            
+                            {/* Previous conversation turns */}
+                            {conversationTurnIndex > 0 && (
+                              <div className="mb-6 space-y-3">
+                                <h4 className="text-sm font-semibold text-gray-600 mb-3">Previous messages:</h4>
+                                {turns.slice(0, conversationTurnIndex).map((turn, idx) => (
+                                  <div 
+                                    key={idx} 
+                                    className={`p-4 rounded-lg ${
+                                      idx % 2 === 0 
+                                        ? 'bg-blue-100 border-l-4 border-blue-500 ml-0 mr-8' 
+                                        : 'bg-green-100 border-r-4 border-green-500 ml-8 mr-0'
+                                    }`}
+                                  >
+                                    <div className="font-semibold text-sm text-gray-700 mb-1">
+                                      {turn.speaker}
+                                    </div>
+                                    <div className="text-gray-900">
+                                      {turn.text.split('{blank}').map((part, i, arr) => (
+                                        <span key={i}>
+                                          {highlightVocabulary(part, handleWordClick)}
+                                          {i < arr.length - 1 && (
+                                            <span className="inline-block mx-1 px-3 py-1 bg-white border-2 border-blue-400 rounded font-semibold text-blue-700">
+                                              {conversationAnswers[idx]?.split(',')[i]?.trim() || '___'}
+                                            </span>
+                                          )}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Current turn */}
+                            {!feedback && (
+                              <div 
+                                className={`p-5 rounded-lg border-2 mb-6 ${
+                                  conversationTurnIndex % 2 === 0 
+                                    ? 'bg-blue-50 border-blue-400 ml-0 mr-8' 
+                                    : 'bg-green-50 border-green-400 ml-8 mr-0'
+                                }`}
+                              >
+                                <div className="font-bold text-lg text-gray-800 mb-3">
+                                  {currentTurn.speaker}
+                                </div>
+                                <div className="text-lg text-gray-900 mb-4 leading-relaxed">
+                                  {currentTurn.text.split('{blank}').map((part, i, arr) => (
+                                    <span key={i}>
+                                      {highlightVocabulary(part, handleWordClick)}
+                                      {i < arr.length - 1 && (
+                                        <span className="inline-block mx-1 px-4 py-1 bg-yellow-100 border-2 border-yellow-400 rounded">
+                                          <span className="text-yellow-700 font-bold">____</span>
+                                        </span>
+                                      )}
+                                    </span>
+                                  ))}
+                                </div>
+                                
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    {numBlanks > 1 
+                                      ? `Fill in the ${numBlanks} blanks (comma-separated):` 
+                                      : 'Fill in the blank:'}
+                                  </label>
+                                  <div className="flex gap-2">
+                                    <input
+                                      type="text"
+                                      value={userAnswer}
+                                      onChange={(e) => setUserAnswer(e.target.value)}
+                                      onKeyPress={(e) => e.key === 'Enter' && handleConversationSubmit()}
+                                      placeholder={numBlanks > 1 ? "word1, word2, word3..." : "Type your answer..."}
+                                      className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none bg-white text-gray-900"
+                                      autoFocus
+                                    />
+                                    <button
+                                      onClick={handleConversationSubmit}
+                                      disabled={!userAnswer.trim()}
+                                      className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                                        userAnswer.trim()
+                                          ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                      }`}
+                                    >
+                                      {isLastTurn ? 'Finish' : 'Next →'}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Show all conversation when feedback is displayed */}
+                            {feedback && (
+                              <div className="space-y-3 mb-6">
+                                {turns.map((turn, idx) => {
+                                  const correctAnswers = Array.isArray(currentQuestion.answer) 
+                                    ? currentQuestion.answer 
+                                    : [currentQuestion.answer];
+                                  const userAns = conversationAnswers[idx] || '';
+                                  const correctAns = correctAnswers[idx] || '';
+                                  
+                                  return (
+                                    <div 
+                                      key={idx} 
+                                      className={`p-4 rounded-lg ${
+                                        idx % 2 === 0 
+                                          ? 'bg-blue-100 border-l-4 border-blue-500 ml-0 mr-8' 
+                                          : 'bg-green-100 border-r-4 border-green-500 ml-8 mr-0'
+                                      }`}
+                                    >
+                                      <div className="font-semibold text-sm text-gray-700 mb-1">
+                                        {turn.speaker}
+                                      </div>
+                                      <div className="text-gray-900">
+                                        {turn.text.split('{blank}').map((part, i, arr) => (
+                                          <span key={i}>
+                                            {highlightVocabulary(part, handleWordClick)}
+                                            {i < arr.length - 1 && (
+                                              <span className={`inline-block mx-1 px-3 py-1 border-2 rounded font-semibold ${
+                                                userAns.split(',')[i]?.trim().toLowerCase() === correctAns.split(',')[i]?.trim().toLowerCase()
+                                                  ? 'bg-green-100 border-green-500 text-green-800'
+                                                  : 'bg-red-100 border-red-500 text-red-800'
+                                              }`}>
+                                                {userAns.split(',')[i]?.trim() || '___'}
+                                                {userAns.split(',')[i]?.trim().toLowerCase() !== correctAns.split(',')[i]?.trim().toLowerCase() && (
+                                                  <span className="text-green-700 ml-2">
+                                                    (→ {correctAns.split(',')[i]?.trim()})
+                                                  </span>
+                                                )}
+                                              </span>
+                                            )}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Feedback */}
@@ -2906,33 +3804,72 @@ der Nachbar >> den Nachbarn`}
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
-                <h3 className="text-2xl font-bold text-gray-800 mb-4">Add Multiple Exercises</h3>
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">📚 Create Topic</h3>
                 <p className="text-sm text-gray-600 mb-4">
-                  Paste multiple exercises using the <code className="bg-gray-200 px-2 py-1 rounded">---EXERCISE---</code> delimiter format.
+                  Paste exercises in <strong>JSON format</strong> (recommended) or text format. JSON format can include topic metadata to auto-create topics and vocabulary.
                 </p>
                 
-                <div className="bg-gray-50 p-4 rounded-lg mb-4 text-xs font-mono">
-                  <div className="text-gray-700 mb-2"><strong>Format Example:</strong></div>
+                <div className="bg-gray-50 p-4 rounded-lg mb-4 text-xs font-mono max-h-64 overflow-y-auto">
+                  <div className="text-gray-700 mb-2 font-bold">📋 JSON Format (Recommended):</div>
+                  <pre className="whitespace-pre-wrap text-gray-600">
+{`{
+  "topic": {
+    "title": "German Dative Case Practice",
+    "description": "Practice dative articles and pronouns"
+  },
+  "exercises": [
+    {
+      "name": "Dative Articles - Basic",
+      "description": "Learn dative articles",
+      "questions": [
+        {
+          "type": "choice",
+          "text": "Ich gebe ___ Mann das Buch.",
+          "options": ["der", "dem", "den", "des"],
+          "answer": "dem"
+        },
+        {
+          "type": "fill-blank",
+          "text": "Sie hilft ___ Kind. (das)",
+          "answer": "dem"
+        }
+      ]
+    }
+  ],
+  "vocabulary": [
+    {
+      "word": "geben",
+      "forms": ["geben", "gibt", "gab", "gegeben"],
+      "meaning": "to give"
+    },
+    {
+      "word": "Mann",
+      "forms": ["der Mann", "des Mannes", "dem Mann", "den Mann", "die Männer"],
+      "meaning": "man"
+    },
+    {
+      "word": "helfen",
+      "forms": ["helfen", "hilft", "half", "geholfen"],
+      "meaning": "to help"
+    }
+  ]
+}`}
+                  </pre>
+                  
+                  <div className="text-gray-700 mb-2 mt-4 font-bold">📝 Text Format (Legacy):</div>
                   <pre className="whitespace-pre-wrap text-gray-600">
 {`---EXERCISE---
-title: Exercise 1 Title
-description: |
-  Multi-line description here.
-  Supports **markdown** formatting.
+title: Exercise 1
+description: Description here
 
 questions:
 Question 1 | Answer 1
-Question 2 | Answer 2
 ---END---
 
 ---EXERCISE---
-title: Exercise 2 Title
-description: |
-  Another exercise description.
-
+title: Exercise 2
 questions:
 das Kind >> den Kindern
-die Frau >> den Frauen
 ---END---`}
                   </pre>
                 </div>
@@ -2940,7 +3877,7 @@ die Frau >> den Frauen
                 <textarea
                   value={bulkExercisesText}
                   onChange={(e) => setBulkExercisesText(e.target.value)}
-                  placeholder="Paste multiple exercises here..."
+                  placeholder="Paste JSON or text format here..."
                   rows={16}
                   className="w-full px-4 py-3 border border-gray-300 rounded-md font-mono text-sm bg-white text-gray-900 mb-4"
                 />
@@ -2959,7 +3896,7 @@ die Frau >> den Frauen
                     onClick={addBulkExercisesFromText}
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                   >
-                    Parse & Add All Exercises
+                    Add Exercises
                   </button>
                 </div>
               </div>
@@ -3089,65 +4026,6 @@ die Frau >> den Frauen
           </div>
         )}
 
-        {/* Add Bulk Vocabulary Modal */}
-        {showBulkVocabModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <h3 className="text-2xl font-bold text-gray-800 mb-4">Bulk Import Vocabulary</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Paste your vocabulary JSON below. The format should include a "vocabulary" array.
-                </p>
-                
-                <div className="bg-gray-50 p-4 rounded-lg mb-4 text-xs font-mono">
-                  <div className="text-gray-700 mb-2"><strong>Format Example:</strong></div>
-                  <pre className="whitespace-pre-wrap text-gray-600">
-{`{
-  "vocabulary": [
-    {
-      "word": "lesen",
-      "forms": ["lesen", "liest", "las", "gelesen"],
-      "meaning": "to read"
-    },
-    {
-      "word": "Fahrrad",
-      "forms": ["das Fahrrad", "Fahrräder"],
-      "meaning": "bicycle"
-    }
-  ]
-}`}
-                  </pre>
-                </div>
-
-                <textarea
-                  value={bulkVocabText}
-                  onChange={(e) => setBulkVocabText(e.target.value)}
-                  placeholder="Paste JSON here..."
-                  rows={14}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-md font-mono text-sm bg-white text-gray-900 mb-4"
-                />
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => {
-                      setShowBulkVocabModal(false);
-                      setBulkVocabText('');
-                    }}
-                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={addBulkVocab}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  >
-                    Import Vocabulary
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

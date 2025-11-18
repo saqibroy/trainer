@@ -1,0 +1,124 @@
+{
+  "topic": {
+    "title": "German Dative Case - Complete Practice",
+    "description": "Comprehensive practice for B1 level dative case with articles, pronouns, and prepositions"
+  },
+  "exercises": [
+    {
+      "name": "Dative Articles - Basic",
+      "description": "Practice dative articles with common nouns",
+      "questions": [
+        {
+          "type": "choice",
+          "text": "Ich gebe ___ Mann das Buch.",
+          "options": ["der", "dem", "den", "des"],
+          "answer": "dem"
+        },
+        {
+          "type": "choice",
+          "text": "Sie hilft ___ Frau.",
+          "options": ["die", "der", "den"],
+          "answer": "der"
+        },
+        {
+          "type": "fill-blank",
+          "text": "Er schreibt ___ Kind einen Brief. (das)",
+          "answer": "dem"
+        },
+        {
+          "type": "fill-blank",
+          "text": "Wir danken ___ Lehrerin. (die)",
+          "answer": "der"
+        }
+      ]
+    },
+    {
+      "name": "Dative Plural",
+      "description": "Transform singular to plural dative",
+      "questions": [
+        {
+          "type": "transform",
+          "text": "das Kind >> Transform to dative plural",
+          "answer": "den Kindern"
+        },
+        {
+          "type": "transform",
+          "text": "die Studentin >> Transform to dative plural",
+          "answer": "den Studentinnen"
+        },
+        {
+          "type": "transform",
+          "text": "der Nachbar >> Transform to dative plural",
+          "answer": "den Nachbarn"
+        }
+      ]
+    },
+    {
+      "name": "Dative Pronouns",
+      "description": "Practice personal pronouns in dative case",
+      "questions": [
+        {
+          "type": "choice",
+          "text": "Das Buch gehört ___ (I).",
+          "options": ["ich", "mir", "mich", "mein"],
+          "answer": "mir"
+        },
+        {
+          "type": "choice",
+          "text": "Ich helfe ___ (you - singular informal).",
+          "options": ["du", "dir", "dich", "dein"],
+          "answer": "dir"
+        },
+        {
+          "type": "fill-blank",
+          "text": "Er gibt ___ das Geschenk. (we)",
+          "answer": "uns"
+        }
+      ]
+    },
+    {
+      "name": "Dative Prepositions",
+      "description": "Prepositions that always take dative case",
+      "questions": [
+        {
+          "type": "choice",
+          "text": "Ich gehe mit ___ Freund ins Kino.",
+          "options": ["mein", "meinem", "meinen", "meiner"],
+          "answer": "meinem"
+        },
+        {
+          "type": "fill-blank",
+          "text": "Das Geschenk ist von ___ Mutter. (meine)",
+          "answer": "meiner"
+        },
+        {
+          "type": "choice",
+          "text": "Nach ___ Unterricht gehen wir nach Hause.",
+          "options": ["der", "dem", "den", "die"],
+          "answer": "dem"
+        }
+      ]
+    },
+    {
+      "name": "Mixed Dative Practice",
+      "description": "Comprehensive dative case practice",
+      "questions": [
+        {
+          "type": "error-correction",
+          "text": "Ich gebe der Mann ein Buch.",
+          "answer": "Ich gebe dem Mann ein Buch."
+        },
+        {
+          "type": "error-correction",
+          "text": "Sie hilft die Kinder mit den Hausaufgaben.",
+          "answer": "Sie hilft den Kindern mit den Hausaufgaben."
+        },
+        {
+          "type": "word-order",
+          "text": "mit / Freund / ich / meinem / gehe / ins Kino",
+          "answer": "Ich gehe mit meinem Freund ins Kino."
+        }
+      ]
+    }
+  ]
+}
