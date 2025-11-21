@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trash2, Plus, BookOpen, Target, Edit2, Check, X, Clock, Download, Upload } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import MatchQuestion from './components/MatchQuestion';
@@ -3018,12 +3018,10 @@ function App() {
                         </div>
                       )}
 
-                      {(currentQuestion.type === 'multi-blank' || currentQuestion.type === 'identify') && (
+                      {currentQuestion.type === 'multi-blank' && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            {currentQuestion.type === 'multi-blank' 
-                              ? 'Enter answers separated by commas (,)' 
-                              : 'Label each part (e.g., word1=DAT, word2=AKK)'}
+                            Enter answers separated by commas (,)
                           </label>
                           <input
                             type="text"
@@ -3031,14 +3029,69 @@ function App() {
                             onChange={(e) => setUserAnswer(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
                             disabled={feedback !== null}
-                            placeholder={currentQuestion.type === 'multi-blank' 
-                              ? "answer1, answer2, answer3..." 
-                              : "word=DAT, word=AKK..."}
+                            placeholder="answer1, answer2, answer3..."
                             className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
                             autoFocus
                           />
                         </div>
                       )}
+
+                      {currentQuestion.type === 'identify' && currentQuestion.context && (() => {
+                        // Parse context to understand what needs to be identified
+                        // Format: "Create a checklist for Person D (4 requirements)"
+                        // The text contains the source: "Person D sucht: Fahrrad, gebraucht, maximal 150€, mit Licht"
+                        // Answer format: "1. Fahrrad | 2. gebraucht | 3. ≤150€ | 4. mit Licht"
+                        
+                        const expectedAnswers = Array.isArray(currentQuestion.answer) 
+                          ? currentQuestion.answer 
+                          : currentQuestion.answer.split('|').map(a => a.trim());
+                        
+                        const numItems = expectedAnswers.length;
+                        
+                        return (
+                          <div>
+                            <div className="mb-6 p-5 bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-300 rounded-lg">
+                              <p className="text-sm text-orange-700 font-semibold mb-3">
+                                🏷️ Identify & List - telc B1
+                              </p>
+                              <div className="bg-white p-4 rounded-lg border border-orange-200 mb-4">
+                                <h4 className="font-bold text-gray-900 mb-2 text-lg">Source Text:</h4>
+                                <p className="text-gray-800 text-lg leading-relaxed">
+                                  {highlightVocabulary(currentQuestion.text, handleWordClick)}
+                                </p>
+                              </div>
+                              <div className="bg-white p-4 rounded-lg border border-orange-200">
+                                <h4 className="font-bold text-gray-900 mb-2">Task:</h4>
+                                <p className="text-gray-800">
+                                  {highlightVocabulary(currentQuestion.context, handleWordClick)}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                              <p className="text-sm text-orange-700">
+                                📝 Enter the items as a list separated by commas, or use the format shown in the example
+                              </p>
+                            </div>
+                            
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                              Your answer (enter {numItems} items):
+                            </label>
+                            <textarea
+                              value={userAnswer}
+                              onChange={(e) => setUserAnswer(e.target.value)}
+                              disabled={feedback !== null}
+                              placeholder="1. item1, 2. item2, 3. item3, 4. item4..."
+                              rows={numItems > 4 ? numItems : 4}
+                              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900 font-mono"
+                              autoFocus
+                            />
+                            <div className="mt-2 text-sm text-gray-600">
+                              💡 Example format: "1. Fahrrad | 2. gebraucht | 3. ≤150€ | 4. mit Licht" or "Fahrrad, gebraucht, ≤150€, mit Licht"
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* Writing Practice Type - Large text area for writing */}
                       {currentQuestion.type === 'writing' && (
@@ -3093,26 +3146,91 @@ function App() {
                       )}
 
                       {/* Reading Comprehension Type */}
-                      {currentQuestion.type === 'reading' && (
-                        <div>
-                          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                            <p className="text-sm text-blue-700">
-                              📖 Answer based on the text above
-                            </p>
+                      {currentQuestion.type === 'reading' && currentQuestion.context && (() => {
+                        // Parse context to extract reading passage and ads/options
+                        // Format: "Person A sucht: ... | Ad 1: ... | Ad 2: ... | Ad 3: ..."
+                        const contextParts = currentQuestion.context.split('|').map(part => part.trim());
+                        const searchCriteria = contextParts[0] || '';
+                        const ads = contextParts.slice(1);
+                        
+                        return (
+                          <div>
+                            <div className="mb-6 p-5 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-lg">
+                              <p className="text-sm text-blue-700 font-semibold mb-3">
+                                📖 Reading Comprehension - telc B1
+                              </p>
+                              <div className="bg-white p-4 rounded-lg border border-blue-200 mb-4">
+                                <h4 className="font-bold text-gray-900 mb-2 text-lg">Search Criteria:</h4>
+                                <p className="text-gray-800 text-lg leading-relaxed">
+                                  {highlightVocabulary(searchCriteria, handleWordClick)}
+                                </p>
+                              </div>
+                              <h4 className="font-bold text-gray-900 mb-3 text-lg">Available Options:</h4>
+                              <div className="space-y-3">
+                                {ads.map((ad, idx) => {
+                                  const [adLabel, ...adContent] = ad.split(':');
+                                  const content = adContent.join(':').trim();
+                                  return (
+                                    <div key={idx} className="bg-white p-4 rounded-lg border-2 border-gray-300">
+                                      <div className="font-bold text-indigo-700 mb-1">{adLabel}:</div>
+                                      <div className="text-gray-800">
+                                        {highlightVocabulary(content, handleWordClick)}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            
+                            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                              <p className="text-lg font-semibold text-gray-900 mb-2">
+                                {highlightVocabulary(currentQuestion.text, handleWordClick)}
+                              </p>
+                              <p className="text-sm text-blue-700">
+                                ☑️ Select the matching option below
+                              </p>
+                            </div>
+                            
+                            <div className="space-y-3">
+                              {ads.map((ad, idx) => {
+                                const adLabel = ad.split(':')[0].trim();
+                                const isSelected = userAnswer === adLabel;
+                                const isDisabled = feedback !== null;
+                                
+                                return (
+                                  <button
+                                    key={idx}
+                                    onClick={() => !isDisabled && setUserAnswer(adLabel)}
+                                    disabled={isDisabled}
+                                    className={`w-full p-4 rounded-lg border-2 font-semibold text-left transition-all ${
+                                      isSelected
+                                        ? 'bg-indigo-100 border-indigo-500 text-indigo-900 shadow-md'
+                                        : isDisabled
+                                        ? 'bg-gray-100 border-gray-300 text-gray-500 cursor-not-allowed'
+                                        : 'bg-white border-gray-300 text-gray-800 hover:bg-indigo-50 hover:border-indigo-400 hover:shadow-sm'
+                                    }`}
+                                  >
+                                    <div className="flex items-center">
+                                      <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
+                                        isSelected
+                                          ? 'border-indigo-600 bg-indigo-600'
+                                          : 'border-gray-400 bg-white'
+                                      }`}>
+                                        {isSelected && (
+                                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                          </svg>
+                                        )}
+                                      </div>
+                                      <span className="text-lg">{adLabel}</span>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Your answer:</label>
-                          <input
-                            type="text"
-                            value={userAnswer}
-                            onChange={(e) => setUserAnswer(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && !feedback && checkAnswer()}
-                            disabled={feedback !== null}
-                            placeholder="Type your answer..."
-                            className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
-                            autoFocus
-                          />
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Error Correction Type */}
                       {currentQuestion.type === 'error-correction' && (
@@ -3224,21 +3342,91 @@ function App() {
                       )}
 
                       {/* Matching Exercise Type - Drag & Drop */}
-                      {currentQuestion.type === 'match' && currentQuestion.context && (
-                        <MatchQuestion
-                          leftItems={currentQuestion.text.split(',').map(item => item.trim())}
-                          rightItems={currentQuestion.context.split(',').map(item => item.trim())}
-                          onSubmit={(matches) => {
-                            // Convert array to comma-separated string
-                            setUserAnswer(matches.join(', '));
-                            // Auto-submit after matching
-                            setTimeout(() => checkAnswer(), 100);
-                          }}
-                          disabled={feedback !== null}
-                          highlightVocabulary={highlightVocabulary}
-                          handleWordClick={handleWordClick}
-                        />
-                      )}
+                      {currentQuestion.type === 'match' && currentQuestion.context && (() => {
+                        const leftItems = currentQuestion.text.split(',').map(item => item.trim());
+                        const rightItems = currentQuestion.context.split(',').map(item => item.trim());
+                        
+                        // Check if all right items are identical (problematic data structure)
+                        const allSame = rightItems.every(item => item === rightItems[0]);
+                        
+                        if (allSame && rightItems.length > 1) {
+                          // Handle case where all matches are the same (e.g., all "opinion marker")
+                          // This is a different UI - just categorize items
+                          return (
+                            <div>
+                              <div className="mb-6 p-5 bg-gradient-to-r from-green-50 to-teal-50 border-2 border-green-300 rounded-lg">
+                                <p className="text-sm text-green-700 font-semibold mb-3">
+                                  🏷️ Categorization - telc B1
+                                </p>
+                                <div className="bg-white p-4 rounded-lg border border-green-200">
+                                  <h4 className="font-bold text-gray-900 mb-2">Category:</h4>
+                                  <p className="text-lg text-indigo-700 font-semibold">
+                                    {rightItems[0]}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <p className="text-sm text-green-700">
+                                  ✓ All items below belong to this category. Review them carefully.
+                                </p>
+                              </div>
+                              
+                              <div className="space-y-3 mb-6">
+                                {leftItems.map((item, idx) => (
+                                  <div key={idx} className="p-4 bg-white border-2 border-green-300 rounded-lg shadow-sm">
+                                    <div className="flex items-center">
+                                      <div className="w-8 h-8 bg-green-100 border-2 border-green-500 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                                        <span className="text-green-700 font-bold">{idx + 1}</span>
+                                      </div>
+                                      <div className="text-lg text-gray-900 flex-1">
+                                        {highlightVocabulary(item, handleWordClick)}
+                                      </div>
+                                      <div className="ml-3 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
+                                        {rightItems[0]}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              
+                              <button
+                                onClick={() => {
+                                  // Auto-fill answer since it's just a categorization exercise
+                                  const matches = leftItems.map(item => `${item}-${rightItems[0]}`);
+                                  setUserAnswer(matches.join(', '));
+                                  setTimeout(() => checkAnswer(), 100);
+                                }}
+                                disabled={feedback !== null}
+                                className={`w-full py-4 rounded-lg font-semibold text-lg transition-all ${
+                                  feedback !== null
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    : 'bg-green-600 text-white hover:bg-green-700 shadow-lg'
+                                }`}
+                              >
+                                {feedback !== null ? 'Confirmed' : 'Confirm Understanding'}
+                              </button>
+                            </div>
+                          );
+                        }
+                        
+                        // Normal matching UI with drag and drop
+                        return (
+                          <MatchQuestion
+                            leftItems={leftItems}
+                            rightItems={rightItems}
+                            onSubmit={(matches) => {
+                              // Convert array to comma-separated string
+                              setUserAnswer(matches.join(', '));
+                              // Auto-submit after matching
+                              setTimeout(() => checkAnswer(), 100);
+                            }}
+                            disabled={feedback !== null}
+                            highlightVocabulary={highlightVocabulary}
+                            handleWordClick={handleWordClick}
+                          />
+                        );
+                      })()}
 
                       {/* Sentence Building/Order Type - Drag & Drop Sortable */}
                       {currentQuestion.type === 'order' && (
@@ -3443,61 +3631,98 @@ function App() {
                             )}
                             
                             {/* Current turn */}
-                            {!feedback && (
-                              <div 
-                                className={`p-5 rounded-lg border-2 mb-6 ${
-                                  conversationTurnIndex % 2 === 0 
-                                    ? 'bg-blue-50 border-blue-400 ml-0 mr-8' 
-                                    : 'bg-green-50 border-green-400 ml-8 mr-0'
-                                }`}
-                              >
-                                <div className="font-bold text-lg text-gray-800 mb-3">
-                                  {currentTurn.speaker}
-                                </div>
-                                <div className="text-lg text-gray-900 mb-4 leading-relaxed">
-                                  {currentTurn.text.split('{blank}').map((part, i, arr) => (
-                                    <span key={i}>
-                                      {highlightVocabulary(part, handleWordClick)}
-                                      {i < arr.length - 1 && (
-                                        <span className="inline-block mx-1 px-4 py-1 bg-yellow-100 border-2 border-yellow-400 rounded">
-                                          <span className="text-yellow-700 font-bold">____</span>
-                                        </span>
-                                      )}
-                                    </span>
-                                  ))}
-                                </div>
-                                
-                                <div>
-                                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    {numBlanks > 1 
-                                      ? `Fill in the ${numBlanks} blanks (comma-separated):` 
-                                      : 'Fill in the blank:'}
-                                  </label>
-                                  <div className="flex gap-2">
-                                    <input
-                                      type="text"
-                                      value={userAnswer}
-                                      onChange={(e) => setUserAnswer(e.target.value)}
-                                      onKeyPress={(e) => e.key === 'Enter' && handleConversationSubmit()}
-                                      placeholder={numBlanks > 1 ? "word1, word2, word3..." : "Type your answer..."}
-                                      className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none bg-white text-gray-900"
-                                      autoFocus
-                                    />
+                            {!feedback && (() => {
+                              // For inline blanks input (similar to ClozeQuestion)
+                              const parts = currentTurn.text.split('{blank}');
+                              const [inlineAnswers, setInlineAnswers] = React.useState<string[]>(Array(numBlanks).fill(''));
+                              const inputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
+                              
+                              const handleInlineChange = (index: number, value: string) => {
+                                const newAnswers = [...inlineAnswers];
+                                newAnswers[index] = value;
+                                setInlineAnswers(newAnswers);
+                                // Update the main userAnswer state
+                                setUserAnswer(newAnswers.join(', '));
+                              };
+                              
+                              const handleKeyPress = (index: number, e: React.KeyboardEvent) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  if (index < numBlanks - 1) {
+                                    inputRefs.current[index + 1]?.focus();
+                                  } else if (inlineAnswers.every(a => a.trim())) {
+                                    handleConversationSubmit();
+                                  }
+                                }
+                              };
+                              
+                              const allFilled = inlineAnswers.every(a => a.trim());
+                              
+                              return (
+                                <div 
+                                  className={`p-5 rounded-lg border-2 mb-6 ${
+                                    conversationTurnIndex % 2 === 0 
+                                      ? 'bg-blue-50 border-blue-400 ml-0 mr-8' 
+                                      : 'bg-green-50 border-green-400 ml-8 mr-0'
+                                  }`}
+                                >
+                                  <div className="font-bold text-lg text-gray-800 mb-3">
+                                    {currentTurn.speaker}
+                                  </div>
+                                  <div className="text-lg text-gray-900 mb-4 leading-relaxed">
+                                    {parts.map((part, i) => (
+                                      <span key={i}>
+                                        {highlightVocabulary(part, handleWordClick)}
+                                        {i < parts.length - 1 && (
+                                          <span className="inline-flex items-center mx-1">
+                                            <input
+                                              ref={(el) => (inputRefs.current[i] = el)}
+                                              type="text"
+                                              value={inlineAnswers[i]}
+                                              onChange={(e) => handleInlineChange(i, e.target.value)}
+                                              onKeyPress={(e) => handleKeyPress(i, e)}
+                                              placeholder={`___${i + 1}___`}
+                                              className={`
+                                                inline-block px-3 py-1 border-2 rounded
+                                                text-center font-semibold text-base
+                                                focus:outline-none focus:ring-2 focus:ring-purple-400
+                                                transition-all
+                                                ${inlineAnswers[i].trim() 
+                                                  ? 'bg-yellow-100 border-yellow-400 text-gray-900' 
+                                                  : 'bg-yellow-50 border-yellow-300 text-gray-600'
+                                                }
+                                              `}
+                                              style={{
+                                                minWidth: '80px',
+                                                width: `${Math.max(80, inlineAnswers[i].length * 10 + 40)}px`
+                                              }}
+                                              autoFocus={i === 0}
+                                            />
+                                          </span>
+                                        )}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  
+                                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-300">
+                                    <div className="text-sm text-gray-600">
+                                      <span className="font-semibold">{inlineAnswers.filter(a => a.trim()).length}</span> of <span className="font-semibold">{numBlanks}</span> blanks filled
+                                    </div>
                                     <button
                                       onClick={handleConversationSubmit}
-                                      disabled={!userAnswer.trim()}
-                                      className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-                                        userAnswer.trim()
-                                          ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                      disabled={!allFilled}
+                                      className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                                        allFilled
+                                          ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md'
                                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                       }`}
                                     >
-                                      {isLastTurn ? 'Finish' : 'Next →'}
+                                      {isLastTurn ? 'Finish ✓' : 'Next Turn →'}
                                     </button>
                                   </div>
                                 </div>
-                              </div>
-                            )}
+                              );
+                            })()}
                             
                             {/* Show all conversation when feedback is displayed */}
                             {feedback && (
@@ -3631,16 +3856,21 @@ function App() {
                     <div className="flex gap-3">
                       {!feedback ? (
                         <>
-                          <button
-                            onClick={checkAnswer}
-                            disabled={!userAnswer.trim()}
-                            className="flex-1 bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                          >
-                            Check Answer
-                          </button>
+                          {/* Hide Check Answer button for types that have their own submit button */}
+                          {!['match', 'order', 'cloze'].includes(currentQuestion.type) && (
+                            <button
+                              onClick={checkAnswer}
+                              disabled={!userAnswer.trim()}
+                              className="flex-1 bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                            >
+                              Check Answer
+                            </button>
+                          )}
                           <button
                             onClick={endSession}
-                            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                            className={`px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium ${
+                              ['match', 'order', 'cloze'].includes(currentQuestion.type) ? 'flex-1' : ''
+                            }`}
                           >
                             End Session
                           </button>

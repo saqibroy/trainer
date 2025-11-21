@@ -468,16 +468,16 @@ Correct: Ich gebe ihn das Buch. | Ich gebe ihm das Buch.
 - What focus? (If not specified, cover all telc sections)
 
 ### Step 2: Plan Exercise Mix
-Choose 5-8 exercise types that best fit the topic:
-- 2-3 basic types (fill-blank, transform, choice)
-- 2-3 intermediate (error correction, word order, matching)
-- 1-2 advanced (cloze, dialogue, writing)
+Choose exercise types that best fit the topic:
+- few basic types 
+- intermediate 
+- advanced
 
 ### Step 3: Create Each Exercise
 For each exercise:
 1. Write clear title (include grammar point)
 2. Write detailed description (rules + examples + telc tips)
-3. Create 6-12 questions (use variety)
+3. Create questions (use variety)
 4. Progress from easy to harder
 
 ### Step 4: Format Correctly

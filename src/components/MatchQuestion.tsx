@@ -217,10 +217,28 @@ export default function MatchQuestion({
 
   return (
     <div>
-      <div className="bg-green-50 border border-green-300 rounded-lg p-4 mb-6">
-        <p className="text-sm text-green-800">
-          <strong>🔗 Drag & Drop Matching:</strong> Drag items from the right column to match with items on the left.
+      <div className="bg-gradient-to-r from-green-50 to-teal-50 border-2 border-green-300 rounded-lg p-5 mb-6">
+        <p className="text-sm text-green-700 font-semibold mb-2">
+          🔗 Drag & Drop Matching - telc B1
         </p>
+        <p className="text-sm text-green-800">
+          <strong>Instructions:</strong> Drag items from the right column and drop them onto the matching items on the left.
+          Click the ✕ button to remove a match if you make a mistake.
+        </p>
+        <div className="mt-3 flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-1">
+            <div className="w-4 h-4 bg-yellow-100 border-2 border-yellow-400 rounded"></div>
+            <span className="text-gray-700">= Draggable</span>
+          </div>
+          <div className="flex items-center gap-1 ml-3">
+            <div className="w-4 h-4 bg-blue-50 border-2 border-dashed border-blue-300 rounded"></div>
+            <span className="text-gray-700">= Drop zone</span>
+          </div>
+          <div className="flex items-center gap-1 ml-3">
+            <div className="w-4 h-4 bg-green-50 border-2 border-green-400 rounded"></div>
+            <span className="text-gray-700">= Matched</span>
+          </div>
+        </div>
       </div>
 
       <DndContext
