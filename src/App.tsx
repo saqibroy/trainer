@@ -177,33 +177,43 @@ const getMasteryLevel = (timesAnswered: number, timesCorrect: number): 'new' | '
   }
 };
 
-// Calculate days since last review
-const getDaysSinceLastReview = (lastReviewed: string | null): number => {
+// Calculate minutes since last review
+const getMinutesSinceLastReview = (lastReviewed: string | null): number => {
   if (!lastReviewed) return Infinity;
   const now = new Date();
   const last = new Date(lastReviewed);
   const diffTime = Math.abs(now.getTime() - last.getTime());
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
+  const diffMinutes = Math.floor(diffTime / (1000 * 60));
+  return diffMinutes;
 };
 
-// Get review interval based on mastery level (in days)
-const getReviewInterval = (level: 'new' | 'weak' | 'middle' | 'mastered'): number => {
-  const intervals = {
-    new: 0,        // Show immediately
-    weak: 0,       // Show every session
-    middle: 1,     // Show if not seen for 1+ days
-    mastered: 7    // Show if not seen for 7+ days
-  };
-  return intervals[level];
+// Get review interval based on mastery level and attempts (in minutes)
+const getReviewInterval = (level: 'new' | 'weak' | 'middle' | 'mastered', timesAnswered: number): number => {
+  if (level === 'new' || level === 'weak') {
+    return 0; // Always show immediately
+  }
+  
+  if (level === 'middle') {
+    // Learning state - progressive intervals based on attempts
+    if (timesAnswered < 4) return 1; // 1 minute (show in same session)
+    if (timesAnswered < 6) return 10; // 10 minutes
+    if (timesAnswered < 8) return 60; // 1 hour
+    return 240; // 4 hours before becoming mastered
+  }
+  
+  if (level === 'mastered') {
+    return 10080; // 7 days in minutes (show weekly)
+  }
+  
+  return 0;
 };
 
 // Check if question is due for review
 const isDueForReview = (timesAnswered: number, timesCorrect: number, lastReviewed: string | null): boolean => {
   const level = getMasteryLevel(timesAnswered, timesCorrect);
-  const daysSince = getDaysSinceLastReview(lastReviewed);
-  const interval = getReviewInterval(level);
-  return daysSince >= interval;
+  const minutesSince = getMinutesSinceLastReview(lastReviewed);
+  const interval = getReviewInterval(level, timesAnswered);
+  return minutesSince >= interval;
 };
 
 const getMasteryColor = (level: string) => {
@@ -379,6 +389,7 @@ function App() {
   const [sessionSize, setSessionSize] = useState(5);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [sessionStats, setSessionStats] = useState({ correct: 0, total: 0 });
+  const [matchCheckedItems, setMatchCheckedItems] = useState<Set<number>>(new Set()); // For match question categorization mode
 
   // Vocabulary states
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
@@ -1290,6 +1301,18 @@ function App() {
       remaining -= added;
     }
 
+    // FALLBACK: If no questions are due (all Learning but not due yet), 
+    // still show Learning questions to keep practice active
+    if (pool.length === 0) {
+      const allMiddle = questions.filter(q => getMasteryLevel(q.timesAnswered, q.timesCorrect) === 'middle');
+      if (allMiddle.length > 0) {
+        addFromCategory(allMiddle, Math.min(size, allMiddle.length));
+      } else {
+        // If no Learning questions, show any available questions
+        addFromCategory(questions, Math.min(size, questions.length));
+      }
+    }
+
     // Shuffle the pool to randomize order within the session
     return pool.sort(() => Math.random() - 0.5);
   };
@@ -1341,6 +1364,17 @@ function App() {
     
     if (remaining > 0 && mastered.length > 0) {
       remaining -= addFromCategory(mastered, remaining);
+    }
+
+    // FALLBACK: If no vocabulary is due, still show Learning items
+    if (pool.length === 0) {
+      const allMiddle = vocabItems.filter(v => getMasteryLevel(v.timesAnswered, v.timesCorrect) === 'middle');
+      if (allMiddle.length > 0) {
+        addFromCategory(allMiddle, Math.min(size, allMiddle.length));
+      } else {
+        // If no Learning items, show any available
+        addFromCategory(vocabItems, Math.min(size, vocabItems.length));
+      }
     }
 
     // Shuffle
@@ -1461,6 +1495,7 @@ function App() {
     setUserAnswer('');
     setConversationTurnIndex(0);
     setConversationAnswers([]);
+    setMatchCheckedItems(new Set());
     setFeedback(null);
     setView('practice');
   };
@@ -1611,6 +1646,7 @@ function App() {
     setUserAnswer('');
     setConversationTurnIndex(0);
     setConversationAnswers([]);
+    setMatchCheckedItems(new Set());
     setFeedback(null);
   };
 
@@ -1626,6 +1662,7 @@ function App() {
     setUserAnswer('');
     setConversationTurnIndex(0);
     setConversationAnswers([]);
+    setMatchCheckedItems(new Set());
     setFeedback(null);
   };
 
@@ -1776,9 +1813,12 @@ function App() {
   const getMasteryInfo = (timesAnswered: number, timesCorrect: number, lastReviewed: string | null) => {
     const level = getMasteryLevel(timesAnswered, timesCorrect);
     const percentage = timesAnswered > 0 ? (timesCorrect / timesAnswered) * 100 : 0;
-    const daysSince = getDaysSinceLastReview(lastReviewed);
-    const reviewInterval = getReviewInterval(level);
+    const minutesSince = getMinutesSinceLastReview(lastReviewed);
+    const reviewInterval = getReviewInterval(level, timesAnswered);
     const isDue = isDueForReview(timesAnswered, timesCorrect, lastReviewed);
+    
+    // Convert minutes to days for display
+    const daysSince = minutesSince >= 1440 ? Math.floor(minutesSince / 1440) : 0;
     
     let nextMilestone = '';
     let reviewStatus = '';
@@ -1798,10 +1838,30 @@ function App() {
         const needed = targetCorrect - timesCorrect;
         nextMilestone = needed > 0 ? `${needed} more correct for mastered (80% accuracy)` : 'Almost there!';
       }
-      reviewStatus = isDue ? 'Due now' : `Review in ${reviewInterval - daysSince} days`;
+      
+      // Format review status for learning (minutes/hours)
+      if (isDue) {
+        reviewStatus = 'Due now';
+      } else {
+        const remainingMinutes = reviewInterval - minutesSince;
+        if (remainingMinutes < 60) {
+          reviewStatus = `Review in ${remainingMinutes} min`;
+        } else if (remainingMinutes < 1440) {
+          const hours = Math.floor(remainingMinutes / 60);
+          reviewStatus = `Review in ${hours} hour${hours > 1 ? 's' : ''}`;
+        } else {
+          const days = Math.floor(remainingMinutes / 1440);
+          reviewStatus = `Review in ${days} day${days > 1 ? 's' : ''}`;
+        }
+      }
     } else {
       nextMilestone = 'Mastered! Keep reviewing.';
-      reviewStatus = isDue ? 'Due for review' : `Review in ${reviewInterval - daysSince} days`;
+      if (isDue) {
+        reviewStatus = 'Due for review';
+      } else {
+        const remainingDays = Math.floor((reviewInterval - minutesSince) / 1440);
+        reviewStatus = remainingDays > 0 ? `Review in ${remainingDays} day${remainingDays > 1 ? 's' : ''}` : 'Review soon';
+      }
     }
     
     return { level, percentage, nextMilestone, reviewStatus, daysSince, isDue };
@@ -2970,7 +3030,7 @@ function App() {
 
                     {/* Question Statement - Clearly visible and prominent */}
                     {/* Only show for types where question text is the main prompt, not part of the interface */}
-                    {!['error-correction', 'word-order', 'choice', 'match', 'order', 'cloze', 'dialogue', 'conversation'].includes(currentQuestion.type) && (
+                    {!['error-correction', 'word-order', 'choice', 'match', 'order', 'cloze', 'dialogue', 'conversation', 'identify', 'reading'].includes(currentQuestion.type) && (
                       <div className="mb-8 p-6 bg-white border-2 border-indigo-200 rounded-lg shadow-sm">
                         <div className="flex items-start mb-2">
                           <Target className="w-6 h-6 text-indigo-600 mr-3 mt-1 flex-shrink-0" />
@@ -3038,9 +3098,8 @@ function App() {
 
                       {currentQuestion.type === 'identify' && currentQuestion.context && (() => {
                         // Parse context to understand what needs to be identified
-                        // Format: "Create a checklist for Person D (4 requirements)"
-                        // The text contains the source: "Person D sucht: Fahrrad, gebraucht, maximal 150€, mit Licht"
-                        // Answer format: "1. Fahrrad | 2. gebraucht | 3. ≤150€ | 4. mit Licht"
+                        // This type is flexible for any subject (reading, grammar, vocabulary, etc.)
+                        // Answer format: "1. item | 2. item | 3. item" or "item, item, item"
                         
                         const expectedAnswers = Array.isArray(currentQuestion.answer) 
                           ? currentQuestion.answer 
@@ -3070,24 +3129,33 @@ function App() {
                             
                             <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                               <p className="text-sm text-orange-700">
-                                📝 Enter the items as a list separated by commas, or use the format shown in the example
+                                📝 List the items below - one per line or separated by commas. Spelling and exact format matter!
                               </p>
                             </div>
                             
                             <label className="block text-sm font-semibold text-gray-700 mb-2">
-                              Your answer (enter {numItems} items):
+                              Your answer ({numItems} items expected):
                             </label>
                             <textarea
                               value={userAnswer}
                               onChange={(e) => setUserAnswer(e.target.value)}
                               disabled={feedback !== null}
-                              placeholder="1. item1, 2. item2, 3. item3, 4. item4..."
-                              rows={numItems > 4 ? numItems : 4}
-                              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900 font-mono"
+                              placeholder={`Item 1\nItem 2\nItem 3\n...`}
+                              rows={numItems > 4 ? numItems + 1 : 5}
+                              className="w-full px-6 py-4 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-100 bg-white text-gray-900"
                               autoFocus
                             />
-                            <div className="mt-2 text-sm text-gray-600">
-                              💡 Example format: "1. Fahrrad | 2. gebraucht | 3. ≤150€ | 4. mit Licht" or "Fahrrad, gebraucht, ≤150€, mit Licht"
+                            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                              <p className="text-sm font-semibold text-blue-900 mb-1">💡 Flexible Formats:</p>
+                              <ul className="text-sm text-blue-800 space-y-1 ml-4">
+                                <li>• <strong>Line by line:</strong> One item per line</li>
+                                <li>• <strong>Comma-separated:</strong> item1, item2, item3</li>
+                                <li>• <strong>Pipe-separated:</strong> item1 | item2 | item3</li>
+                                <li>• <strong>Numbered:</strong> 1. item1 | 2. item2 | 3. item3</li>
+                              </ul>
+                              <p className="text-xs text-blue-700 mt-2">
+                                ⚠️ Make sure spelling is exact - minor typos will be marked incorrect!
+                              </p>
                             </div>
                           </div>
                         );
@@ -3147,82 +3215,168 @@ function App() {
 
                       {/* Reading Comprehension Type */}
                       {currentQuestion.type === 'reading' && currentQuestion.context && (() => {
-                        // Parse context to extract reading passage and ads/options
-                        // Format: "Person A sucht: ... | Ad 1: ... | Ad 2: ... | Ad 3: ..."
-                        const contextParts = currentQuestion.context.split('|').map(part => part.trim());
-                        const searchCriteria = contextParts[0] || '';
-                        const ads = contextParts.slice(1);
+                        // Check if this is a TRUE/FALSE/NOT MENTIONED question
+                        const isTrueFalseQuestion = currentQuestion.text.includes('TRUE, FALSE') || 
+                                                    currentQuestion.text.includes('TRUE / FALSE') ||
+                                                    currentQuestion.answer === 'TRUE' || 
+                                                    currentQuestion.answer === 'FALSE' || 
+                                                    currentQuestion.answer === 'NOT MENTIONED';
+                        
+                        let allOptions: Array<{label: string, content: string}> = [];
+                        
+                        if (isTrueFalseQuestion) {
+                          // For TRUE/FALSE questions, extract the text passage and create options
+                          const textContent = currentQuestion.context.replace(/^Text:\s*/, '').replace(/^['"]|['"]$/g, '').trim();
+                          
+                          // Create TRUE/FALSE/NOT MENTIONED options
+                          allOptions = [
+                            {
+                              label: 'TRUE',
+                              content: textContent
+                            },
+                            {
+                              label: 'FALSE',
+                              content: textContent
+                            },
+                            {
+                              label: 'NOT MENTIONED',
+                              content: textContent
+                            }
+                          ];
+                        } else {
+                          // Parse context to extract reading passage and ads/options
+                          // Format 1: "Person A sucht: ... | Ad 1: ... | Ad 2: ... | Ad 3: ..." (search + ads)
+                          // Format 2: "Person A: '...' | Person B: '...' | Person C: '...'" (person statements - ALL are options!)
+                          const contextParts = currentQuestion.context.split('|').map(part => part.trim());
+                          
+                          // Collect options/persons mentioned in context
+                          // For person statements (Format 2), ALL persons are selectable options
+                          // For search format (Format 1), skip "sucht:" items - they are criteria, not options
+                          allOptions = contextParts
+                            .filter(part => {
+                              // Skip search criteria items (Person X sucht:)
+                              const partLower = part.toLowerCase();
+                              return !partLower.includes('sucht:') && 
+                                     !partLower.includes('search:') &&
+                                     !partLower.includes('looking for:');
+                            })
+                            .map(part => {
+                              const colonIndex = part.indexOf(':');
+                              if (colonIndex > 0) {
+                                return {
+                                  label: part.substring(0, colonIndex).trim(),
+                                  content: part.substring(colonIndex + 1).trim()
+                                };
+                              }
+                              return {
+                                label: part.split(/\s+/)[0],
+                                content: part
+                              };
+                            });
+                          
+                          // Also check if answer should be included (like "Person A" not in context but is the answer)
+                          const answerLabel = typeof currentQuestion.answer === 'string' ? currentQuestion.answer.trim() : '';
+                          const answerInOptions = allOptions.some(opt => opt.label === answerLabel);
+                          
+                          // If answer is not in options, add it
+                          if (!answerInOptions && answerLabel) {
+                            // Check if there's a pattern like "Person A" in any context part
+                            const answerOption = allOptions.find(opt => opt.content.includes(answerLabel));
+                            if (answerOption) {
+                              // Already there, just not labeled correctly
+                            } else {
+                              // Add as a selectable option
+                              allOptions.push({
+                                label: answerLabel,
+                                content: ''
+                              });
+                            }
+                          }
+                        }
                         
                         return (
                           <div>
-                            <div className="mb-6 p-5 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-lg">
-                              <p className="text-sm text-blue-700 font-semibold mb-3">
-                                📖 Reading Comprehension - telc B1
-                              </p>
-                              <div className="bg-white p-4 rounded-lg border border-blue-200 mb-4">
-                                <h4 className="font-bold text-gray-900 mb-2 text-lg">Search Criteria:</h4>
-                                <p className="text-gray-800 text-lg leading-relaxed">
-                                  {highlightVocabulary(searchCriteria, handleWordClick)}
-                                </p>
-                              </div>
-                              <h4 className="font-bold text-gray-900 mb-3 text-lg">Available Options:</h4>
-                              <div className="space-y-3">
-                                {ads.map((ad, idx) => {
-                                  const [adLabel, ...adContent] = ad.split(':');
-                                  const content = adContent.join(':').trim();
-                                  return (
-                                    <div key={idx} className="bg-white p-4 rounded-lg border-2 border-gray-300">
-                                      <div className="font-bold text-indigo-700 mb-1">{adLabel}:</div>
-                                      <div className="text-gray-800">
-                                        {highlightVocabulary(content, handleWordClick)}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                            
-                            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                              <p className="text-lg font-semibold text-gray-900 mb-2">
-                                {highlightVocabulary(currentQuestion.text, handleWordClick)}
-                              </p>
-                              <p className="text-sm text-blue-700">
-                                ☑️ Select the matching option below
-                              </p>
-                            </div>
+                            {isTrueFalseQuestion ? (
+                              // TRUE/FALSE question display
+                              <>
+                                <div className="mb-6 p-5 bg-blue-50 border-2 border-blue-300 rounded-lg">
+                                  <h4 className="text-xs font-bold text-blue-900 mb-3 uppercase tracking-wide">
+                                    📖 Reading Passage
+                                  </h4>
+                                  <p className="text-base text-gray-900 leading-relaxed mb-4 bg-white p-4 rounded border border-blue-200">
+                                    {highlightVocabulary(allOptions[0].content, handleWordClick)}
+                                  </p>
+                                  <div className="border-t border-blue-200 pt-4 mt-4">
+                                    <h4 className="text-xs font-bold text-blue-900 mb-2 uppercase tracking-wide">
+                                      Statement to Evaluate
+                                    </h4>
+                                    <p className="text-lg font-semibold text-indigo-800">
+                                      {highlightVocabulary(currentQuestion.text.replace(/Statement:\s*/i, '').replace(/\s*-\s*TRUE.*$/i, ''), handleWordClick)}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="mb-3 text-sm font-semibold text-gray-600">
+                                  Select your answer:
+                                </div>
+                              </>
+                            ) : (
+                              // Regular reading comprehension display
+                              <>
+                                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                  <p className="text-lg font-semibold text-gray-900 mb-2">
+                                    📖 {highlightVocabulary(currentQuestion.text, handleWordClick)}
+                                  </p>
+                                  <p className="text-sm text-blue-700">
+                                    Click on the correct option below
+                                  </p>
+                                </div>
+                                
+                                <div className="mb-3 text-sm font-semibold text-gray-600">
+                                  Available Information:
+                                </div>
+                              </>
+                            )}
                             
                             <div className="space-y-3">
-                              {ads.map((ad, idx) => {
-                                const adLabel = ad.split(':')[0].trim();
-                                const isSelected = userAnswer === adLabel;
+                              {allOptions.map((option, idx) => {
+                                const isSelected = userAnswer === option.label;
                                 const isDisabled = feedback !== null;
                                 
                                 return (
                                   <button
                                     key={idx}
-                                    onClick={() => !isDisabled && setUserAnswer(adLabel)}
+                                    onClick={() => !isDisabled && setUserAnswer(option.label)}
                                     disabled={isDisabled}
-                                    className={`w-full p-4 rounded-lg border-2 font-semibold text-left transition-all ${
+                                    className={`w-full p-5 rounded-lg border-2 transition-all text-left ${
                                       isSelected
-                                        ? 'bg-indigo-100 border-indigo-500 text-indigo-900 shadow-md'
+                                        ? 'bg-indigo-100 border-indigo-500 shadow-lg scale-[1.02]'
                                         : isDisabled
-                                        ? 'bg-gray-100 border-gray-300 text-gray-500 cursor-not-allowed'
-                                        : 'bg-white border-gray-300 text-gray-800 hover:bg-indigo-50 hover:border-indigo-400 hover:shadow-sm'
+                                        ? 'bg-gray-50 border-gray-300 cursor-not-allowed opacity-60'
+                                        : 'bg-white border-gray-300 hover:border-indigo-400 hover:shadow-md cursor-pointer'
                                     }`}
                                   >
-                                    <div className="flex items-center">
-                                      <div className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
+                                    <div className="flex items-start">
+                                      <div className={`w-6 h-6 rounded-full border-2 mr-3 mt-0.5 flex items-center justify-center flex-shrink-0 ${
                                         isSelected
                                           ? 'border-indigo-600 bg-indigo-600'
                                           : 'border-gray-400 bg-white'
                                       }`}>
                                         {isSelected && (
-                                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                           </svg>
                                         )}
                                       </div>
-                                      <span className="text-lg">{adLabel}</span>
+                                      <div className="flex-1">
+                                        <div className={`font-bold text-lg ${isTrueFalseQuestion ? '' : 'mb-2'} ${isSelected ? 'text-indigo-900' : 'text-indigo-700'}`}>
+                                          {option.label}
+                                        </div>
+                                        {!isTrueFalseQuestion && option.content && (
+                                          <div className={`text-base ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>
+                                            {highlightVocabulary(option.content, handleWordClick)}
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </button>
                                 );
@@ -3306,7 +3460,7 @@ function App() {
                             </p>
                           </div>
                           <div className="space-y-3">
-                            {currentQuestion.context.split(',').map((option, idx) => {
+                            {currentQuestion.context.split(/, (?=\d|[A-Z]|No|Yes)/).map((option, idx) => {
                               const optionText = option.trim();
                               const isSelected = userAnswer === optionText;
                               const isDisabled = feedback !== null;
@@ -3342,16 +3496,47 @@ function App() {
                       )}
 
                       {/* Matching Exercise Type - Drag & Drop */}
-                      {currentQuestion.type === 'match' && currentQuestion.context && (() => {
+                      {(() => {
+                        if (currentQuestion.type !== 'match' || !currentQuestion.context) {
+                          // Always render MatchQuestion for consistent hook count, but hidden
+                          return (
+                            <div style={{ display: 'none' }}>
+                              <MatchQuestion
+                                leftItems={['']}
+                                rightItems={['']}
+                                onSubmit={() => {}}
+                                disabled={true}
+                                highlightVocabulary={highlightVocabulary}
+                                handleWordClick={handleWordClick}
+                              />
+                            </div>
+                          );
+                        }
+
                         const leftItems = currentQuestion.text.split(',').map(item => item.trim());
                         const rightItems = currentQuestion.context.split(',').map(item => item.trim());
                         
                         // Check if all right items are identical (problematic data structure)
                         const allSame = rightItems.every(item => item === rightItems[0]);
                         
-                        if (allSame && rightItems.length > 1) {
+                        const showCategorization = allSame && rightItems.length > 1;
+                        
+                        if (showCategorization) {
                           // Handle case where all matches are the same (e.g., all "opinion marker")
-                          // This is a different UI - just categorize items
+                          // User needs to verify they understand by clicking each item
+                          
+                          const handleItemCheck = (idx: number) => {
+                            const newChecked = new Set(matchCheckedItems);
+                            if (newChecked.has(idx)) {
+                              newChecked.delete(idx);
+                            } else {
+                              newChecked.add(idx);
+                            }
+                            setMatchCheckedItems(newChecked);
+                          };
+                          
+                          const allChecked = matchCheckedItems.size === leftItems.length;
+                          
                           return (
                             <div>
                               <div className="mb-6 p-5 bg-gradient-to-r from-green-50 to-teal-50 border-2 border-green-300 rounded-lg">
@@ -3368,70 +3553,102 @@ function App() {
                               
                               <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                                 <p className="text-sm text-green-700">
-                                  ✓ All items below belong to this category. Review them carefully.
+                                  ✓ Click each item to confirm it belongs to this category ({matchCheckedItems.size}/{leftItems.length} confirmed)
                                 </p>
                               </div>
                               
                               <div className="space-y-3 mb-6">
-                                {leftItems.map((item, idx) => (
-                                  <div key={idx} className="p-4 bg-white border-2 border-green-300 rounded-lg shadow-sm">
-                                    <div className="flex items-center">
-                                      <div className="w-8 h-8 bg-green-100 border-2 border-green-500 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                                        <span className="text-green-700 font-bold">{idx + 1}</span>
+                                {leftItems.map((item, idx) => {
+                                  const isChecked = matchCheckedItems.has(idx);
+                                  return (
+                                    <button
+                                      key={idx}
+                                      onClick={() => !feedback && handleItemCheck(idx)}
+                                      disabled={feedback !== null}
+                                      className={`w-full p-4 border-2 rounded-lg shadow-sm transition-all text-left ${
+                                        isChecked
+                                          ? 'bg-green-100 border-green-500'
+                                          : 'bg-white border-gray-300 hover:border-green-400'
+                                      } ${feedback ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                    >
+                                      <div className="flex items-center">
+                                        <div className={`w-8 h-8 border-2 rounded-full flex items-center justify-center mr-3 flex-shrink-0 transition-all ${
+                                          isChecked
+                                            ? 'bg-green-500 border-green-600'
+                                            : 'bg-white border-gray-400'
+                                        }`}>
+                                          {isChecked ? (
+                                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                          ) : (
+                                            <span className="text-gray-400 font-bold">{idx + 1}</span>
+                                          )}
+                                        </div>
+                                        <div className="text-lg text-gray-900 flex-1">
+                                          {highlightVocabulary(item, handleWordClick)}
+                                        </div>
+                                        <div className={`ml-3 px-3 py-1 rounded-full text-sm font-semibold ${
+                                          isChecked
+                                            ? 'bg-green-200 text-green-800'
+                                            : 'bg-gray-100 text-gray-500'
+                                        }`}>
+                                          {rightItems[0]}
+                                        </div>
                                       </div>
-                                      <div className="text-lg text-gray-900 flex-1">
-                                        {highlightVocabulary(item, handleWordClick)}
-                                      </div>
-                                      <div className="ml-3 px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
-                                        {rightItems[0]}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
+                                    </button>
+                                  );
+                                })}
                               </div>
                               
                               <button
                                 onClick={() => {
-                                  // Auto-fill answer since it's just a categorization exercise
-                                  const matches = leftItems.map(item => `${item}-${rightItems[0]}`);
-                                  setUserAnswer(matches.join(', '));
-                                  setTimeout(() => checkAnswer(), 100);
+                                  if (allChecked) {
+                                    // Auto-fill answer since user confirmed all items
+                                    const matches = leftItems.map(item => `${item}-${rightItems[0]}`);
+                                    setUserAnswer(matches.join(', '));
+                                    setTimeout(() => checkAnswer(), 100);
+                                  }
                                 }}
-                                disabled={feedback !== null}
+                                disabled={feedback !== null || !allChecked}
                                 className={`w-full py-4 rounded-lg font-semibold text-lg transition-all ${
-                                  feedback !== null
+                                  feedback !== null || !allChecked
                                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                     : 'bg-green-600 text-white hover:bg-green-700 shadow-lg'
                                 }`}
                               >
-                                {feedback !== null ? 'Confirmed' : 'Confirm Understanding'}
+                                {feedback !== null ? 'Confirmed' : allChecked ? 'Submit Categorization ✓' : `Confirm All Items (${matchCheckedItems.size}/${leftItems.length})`}
                               </button>
                             </div>
                           );
                         }
                         
-                        // Normal matching UI with drag and drop
+                        // Always render MatchQuestion to maintain consistent hook count
                         return (
-                          <MatchQuestion
-                            leftItems={leftItems}
-                            rightItems={rightItems}
-                            onSubmit={(matches) => {
-                              // Convert array to comma-separated string
-                              setUserAnswer(matches.join(', '));
-                              // Auto-submit after matching
-                              setTimeout(() => checkAnswer(), 100);
-                            }}
-                            disabled={feedback !== null}
-                            highlightVocabulary={highlightVocabulary}
-                            handleWordClick={handleWordClick}
-                          />
+                          <>
+                            <div style={{ display: showCategorization ? 'none' : 'block' }}>
+                              <MatchQuestion
+                                leftItems={leftItems}
+                                rightItems={rightItems}
+                                onSubmit={(matches) => {
+                                  // Convert array to comma-separated string
+                                  setUserAnswer(matches.join(', '));
+                                  // Auto-submit after matching
+                                  setTimeout(() => checkAnswer(), 100);
+                                }}
+                                disabled={feedback !== null}
+                                highlightVocabulary={highlightVocabulary}
+                                handleWordClick={handleWordClick}
+                              />
+                            </div>
+                          </>
                         );
                       })()}
 
-                      {/* Sentence Building/Order Type - Drag & Drop Sortable */}
-                      {currentQuestion.type === 'order' && (
+                      {/* Sentence Building/Order Type - Drag & Drop Sortable - ALWAYS RENDERED */}
+                      <div style={{ display: currentQuestion.type === 'order' ? 'block' : 'none' }}>
                         <OrderQuestion
-                          words={currentQuestion.text.split(/[/,]/).map(word => word.trim())}
+                          words={currentQuestion.type === 'order' ? currentQuestion.text.split(/[/,]/).map(word => word.trim()) : ['']}
                           onSubmit={(sentence) => {
                             setUserAnswer(sentence);
                             // Auto-submit after building sentence
@@ -3441,12 +3658,12 @@ function App() {
                           highlightVocabulary={highlightVocabulary}
                           handleWordClick={handleWordClick}
                         />
-                      )}
+                      </div>
 
-                      {/* Cloze Passage Type - Inline Inputs */}
-                      {currentQuestion.type === 'cloze' && (
+                      {/* Cloze Passage Type - Inline Inputs - ALWAYS RENDERED */}
+                      <div style={{ display: currentQuestion.type === 'cloze' ? 'block' : 'none' }}>
                         <ClozeQuestion
-                          passage={currentQuestion.text}
+                          passage={currentQuestion.type === 'cloze' ? currentQuestion.text : 'placeholder'}
                           onSubmit={(answers) => {
                             // Convert array to comma-separated string
                             setUserAnswer(answers.join(', '));
@@ -3457,7 +3674,7 @@ function App() {
                           highlightVocabulary={highlightVocabulary}
                           handleWordClick={handleWordClick}
                         />
-                      )}
+                      </div>
 
                       {/* Dialogue Practice Type */}
                       {currentQuestion.type === 'dialogue' && currentQuestion.context && (
@@ -3496,7 +3713,7 @@ function App() {
                       {/* Interactive Conversation Type */}
                       {currentQuestion.type === 'conversation' && currentQuestion.context && (() => {
                         // Parse conversation turns from context
-                        // Format: "Turn1: Speaker: Text with {blank}|Turn2: Speaker: Reply with {blank}|..."
+                        // Format: "Speaker: Text with {blank}|Speaker2: Reply with {blank}|..."
                         const turns = currentQuestion.context.split('|').map(turn => {
                           const [speaker, ...textParts] = turn.split(':');
                           return {
@@ -3512,6 +3729,28 @@ function App() {
                         const blanks = currentTurn.text.match(/\{blank\}/g) || [];
                         const numBlanks = blanks.length;
                         
+                        // Get correct answers for validation
+                        const correctAnswers = Array.isArray(currentQuestion.answer) 
+                          ? currentQuestion.answer 
+                          : [currentQuestion.answer];
+                        
+                        // Check if a turn's answer is correct (for immediate feedback)
+                        const checkTurnAnswer = (answer: string, turnIdx?: number) => {
+                          const idx = turnIdx !== undefined ? turnIdx : conversationTurnIndex;
+                          const correctAns = correctAnswers[idx] || '';
+                          const userAns = answer.trim().toLowerCase();
+                          const correct = correctAns.toLowerCase();
+                          
+                          // Handle multiple blanks per turn (comma-separated)
+                          if (userAns.includes(',') || correct.includes(',')) {
+                            const userParts = userAns.split(',').map(p => p.trim());
+                            const correctParts = correct.split(',').map(p => p.trim());
+                            return userParts.every((up, i) => up === correctParts[i]);
+                          }
+                          
+                          return userAns === correct;
+                        };
+                        
                         const handleConversationSubmit = () => {
                           if (!userAnswer.trim()) return;
                           
@@ -3520,11 +3759,7 @@ function App() {
                           setConversationAnswers(newAnswers);
                           
                           if (isLastTurn) {
-                            // Last turn - check all answers
-                            const correctAnswers = Array.isArray(currentQuestion.answer) 
-                              ? currentQuestion.answer 
-                              : [currentQuestion.answer];
-                            
+                            // Last turn - check all answers and finalize
                             // Check if all answers match
                             const allCorrect = newAnswers.every((ans, idx) => {
                               const correctAns = correctAnswers[idx] || '';
@@ -3588,6 +3823,21 @@ function App() {
                         
                         return (
                           <div>
+                            {/* Scenario Description - NEW! */}
+                            {currentQuestion.text && (
+                              <div className="bg-gradient-to-r from-purple-100 to-blue-100 border-2 border-purple-400 rounded-xl p-5 mb-6 shadow-sm">
+                                <div className="flex items-start gap-3">
+                                  <span className="text-2xl">🎭</span>
+                                  <div className="flex-1">
+                                    <h4 className="text-sm font-bold text-purple-900 mb-2">SCENARIO</h4>
+                                    <p className="text-base text-purple-800 leading-relaxed">
+                                      {currentQuestion.text}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
                             <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-300 rounded-lg p-4 mb-6">
                               <p className="text-sm text-purple-800">
                                 <strong>🗨️ Interactive Conversation:</strong> Fill in the blanks to continue the conversation. 
@@ -3597,123 +3847,104 @@ function App() {
                               </p>
                             </div>
                             
-                            {/* Previous conversation turns */}
+                            {/* Previous conversation turns - WITH IMMEDIATE FEEDBACK */}
                             {conversationTurnIndex > 0 && (
                               <div className="mb-6 space-y-3">
                                 <h4 className="text-sm font-semibold text-gray-600 mb-3">Previous messages:</h4>
-                                {turns.slice(0, conversationTurnIndex).map((turn, idx) => (
-                                  <div 
-                                    key={idx} 
-                                    className={`p-4 rounded-lg ${
-                                      idx % 2 === 0 
-                                        ? 'bg-blue-100 border-l-4 border-blue-500 ml-0 mr-8' 
-                                        : 'bg-green-100 border-r-4 border-green-500 ml-8 mr-0'
-                                    }`}
-                                  >
-                                    <div className="font-semibold text-sm text-gray-700 mb-1">
-                                      {turn.speaker}
+                                {turns.slice(0, conversationTurnIndex).map((turn, idx) => {
+                                  // Check if this turn was answered correctly
+                                  const userAns = conversationAnswers[idx] || '';
+                                  const correctAns = correctAnswers[idx] || '';
+                                  const wasCorrect = checkTurnAnswer(userAns, idx);
+                                  
+                                  return (
+                                    <div 
+                                      key={idx} 
+                                      className={`p-4 rounded-lg border-l-4 ${
+                                        idx % 2 === 0 
+                                          ? wasCorrect
+                                            ? 'bg-green-50 border-green-500 ml-0 mr-8'
+                                            : 'bg-red-50 border-red-500 ml-0 mr-8'
+                                          : wasCorrect
+                                            ? 'bg-green-50 border-green-500 ml-8 mr-0'
+                                            : 'bg-red-50 border-red-500 ml-8 mr-0'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between mb-1">
+                                        <div className="font-semibold text-sm text-gray-700">
+                                          {turn.speaker}
+                                        </div>
+                                        {wasCorrect ? (
+                                          <span className="text-xs font-bold text-green-700 bg-green-200 px-2 py-1 rounded">✓ Correct</span>
+                                        ) : (
+                                          <span className="text-xs font-bold text-red-700 bg-red-200 px-2 py-1 rounded">✗ Incorrect</span>
+                                        )}
+                                      </div>
+                                      <div className="text-gray-900">
+                                        {turn.text.split('{blank}').map((part, i, arr) => (
+                                          <span key={i}>
+                                            {highlightVocabulary(part, handleWordClick)}
+                                            {i < arr.length - 1 && (
+                                              <span className={`inline-block mx-1 px-3 py-1 border-2 rounded font-semibold ${
+                                                userAns.split(',')[i]?.trim().toLowerCase() === correctAns.split(',')[i]?.trim().toLowerCase()
+                                                  ? 'bg-green-100 border-green-500 text-green-800'
+                                                  : 'bg-red-100 border-red-500 text-red-800'
+                                              }`}>
+                                                {userAns.split(',')[i]?.trim() || '___'}
+                                                {!wasCorrect && (
+                                                  <span className="text-green-700 text-sm ml-2">
+                                                    (→ {correctAns.split(',')[i]?.trim()})
+                                                  </span>
+                                                )}
+                                              </span>
+                                            )}
+                                          </span>
+                                        ))}
+                                      </div>
                                     </div>
-                                    <div className="text-gray-900">
-                                      {turn.text.split('{blank}').map((part, i, arr) => (
-                                        <span key={i}>
-                                          {highlightVocabulary(part, handleWordClick)}
-                                          {i < arr.length - 1 && (
-                                            <span className="inline-block mx-1 px-3 py-1 bg-white border-2 border-blue-400 rounded font-semibold text-blue-700">
-                                              {conversationAnswers[idx]?.split(',')[i]?.trim() || '___'}
-                                            </span>
-                                          )}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                             
-                            {/* Current turn */}
-                            {!feedback && (() => {
-                              // For inline blanks input (similar to ClozeQuestion)
-                              const parts = currentTurn.text.split('{blank}');
-                              const [inlineAnswers, setInlineAnswers] = React.useState<string[]>(Array(numBlanks).fill(''));
-                              const inputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
-                              
-                              const handleInlineChange = (index: number, value: string) => {
-                                const newAnswers = [...inlineAnswers];
-                                newAnswers[index] = value;
-                                setInlineAnswers(newAnswers);
-                                // Update the main userAnswer state
-                                setUserAnswer(newAnswers.join(', '));
-                              };
-                              
-                              const handleKeyPress = (index: number, e: React.KeyboardEvent) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  if (index < numBlanks - 1) {
-                                    inputRefs.current[index + 1]?.focus();
-                                  } else if (inlineAnswers.every(a => a.trim())) {
-                                    handleConversationSubmit();
-                                  }
-                                }
-                              };
-                              
-                              const allFilled = inlineAnswers.every(a => a.trim());
-                              
-                              return (
-                                <div 
-                                  className={`p-5 rounded-lg border-2 mb-6 ${
-                                    conversationTurnIndex % 2 === 0 
-                                      ? 'bg-blue-50 border-blue-400 ml-0 mr-8' 
-                                      : 'bg-green-50 border-green-400 ml-8 mr-0'
-                                  }`}
-                                >
-                                  <div className="font-bold text-lg text-gray-800 mb-3">
-                                    {currentTurn.speaker}
-                                  </div>
-                                  <div className="text-lg text-gray-900 mb-4 leading-relaxed">
-                                    {parts.map((part, i) => (
-                                      <span key={i}>
-                                        {highlightVocabulary(part, handleWordClick)}
-                                        {i < parts.length - 1 && (
-                                          <span className="inline-flex items-center mx-1">
-                                            <input
-                                              ref={(el) => (inputRefs.current[i] = el)}
-                                              type="text"
-                                              value={inlineAnswers[i]}
-                                              onChange={(e) => handleInlineChange(i, e.target.value)}
-                                              onKeyPress={(e) => handleKeyPress(i, e)}
-                                              placeholder={`___${i + 1}___`}
-                                              className={`
-                                                inline-block px-3 py-1 border-2 rounded
-                                                text-center font-semibold text-base
-                                                focus:outline-none focus:ring-2 focus:ring-purple-400
-                                                transition-all
-                                                ${inlineAnswers[i].trim() 
-                                                  ? 'bg-yellow-100 border-yellow-400 text-gray-900' 
-                                                  : 'bg-yellow-50 border-yellow-300 text-gray-600'
-                                                }
-                                              `}
-                                              style={{
-                                                minWidth: '80px',
-                                                width: `${Math.max(80, inlineAnswers[i].length * 10 + 40)}px`
-                                              }}
-                                              autoFocus={i === 0}
-                                            />
-                                          </span>
-                                        )}
-                                      </span>
-                                    ))}
-                                  </div>
-                                  
-                                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-300">
-                                    <div className="text-sm text-gray-600">
-                                      <span className="font-semibold">{inlineAnswers.filter(a => a.trim()).length}</span> of <span className="font-semibold">{numBlanks}</span> blanks filled
-                                    </div>
+                            {/* Current turn - Simplified without nested hooks */}
+                            {!feedback && (
+                              <div 
+                                className={`p-5 rounded-lg border-2 mb-6 ${
+                                  conversationTurnIndex % 2 === 0 
+                                    ? 'bg-blue-50 border-blue-400 ml-0 mr-8' 
+                                    : 'bg-green-50 border-green-400 ml-8 mr-0'
+                                }`}
+                              >
+                                <div className="font-bold text-lg text-gray-800 mb-3">
+                                  {currentTurn.speaker}
+                                </div>
+                                <div className="text-lg text-gray-900 mb-4 leading-relaxed">
+                                  {highlightVocabulary(currentTurn.text.replace(/\{blank\}/g, '____'), handleWordClick)}
+                                </div>
+                                
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    {numBlanks > 1 
+                                      ? `Fill in the ${numBlanks} blanks (comma-separated):` 
+                                      : 'Fill in the blank:'}
+                                  </label>
+                                  <div className="flex gap-2">
+                                    <input
+                                      type="text"
+                                      value={userAnswer}
+                                      onChange={(e) => setUserAnswer(e.target.value)}
+                                      onKeyPress={(e) => e.key === 'Enter' && userAnswer.trim() && handleConversationSubmit()}
+                                      placeholder={numBlanks > 1 ? "word1, word2, word3..." : "Type your answer..."}
+                                      className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none bg-white text-gray-900"
+                                      autoFocus
+                                    />
                                     <button
                                       onClick={handleConversationSubmit}
-                                      disabled={!allFilled}
-                                      className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-                                        allFilled
-                                          ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md'
+                                      disabled={!userAnswer.trim()}
+                                      className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                                        userAnswer.trim()
+                                          ? 'bg-indigo-600 text-white hover:bg-indigo-700'
                                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                       }`}
                                     >
@@ -3721,8 +3952,8 @@ function App() {
                                     </button>
                                   </div>
                                 </div>
-                              );
-                            })()}
+                              </div>
+                            )}
                             
                             {/* Show all conversation when feedback is displayed */}
                             {feedback && (
