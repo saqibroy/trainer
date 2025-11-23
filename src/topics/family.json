@@ -1,0 +1,681 @@
+{
+  "topic": {
+    "title": "Family & Personal Life Vocabulary (B1)",
+    "description": "Master 150 core vocabulary words essential for telc B1 exam success. Learn family members, relationships, and descriptive adjectives used across all exam sections - Writing Teil 1 (emails), Speaking Teil 1-2 (introductions and discussions), Reading Teil 1 (personal texts), and Listening Teil 1-2."
+  },
+  "exercises": [
+    {
+      "name": "Family Vocabulary Recognition - Articles & Genders",
+      "description": "Learn to recognize correct articles and genders for immediate and extended family members. Essential foundation for all B1 communication.",
+      "questions": [
+        {
+          "type": "choice",
+          "text": "___ Vater arbeitet als Arzt in Berlin.",
+          "context": "Der, Die, Das, Den",
+          "answer": "Der"
+        },
+        {
+          "type": "choice",
+          "text": "Ich besuche ___ Mutter am Wochenende.",
+          "context": "der, die, das, den",
+          "answer": "die"
+        },
+        {
+          "type": "choice",
+          "text": "___ Bruder studiert Medizin.",
+          "context": "Der, Die, Das, Dem",
+          "answer": "Der"
+        },
+        {
+          "type": "choice",
+          "text": "Meine ___ leben auf dem Land.",
+          "context": "Großvater, Großmutter, Großeltern, Onkel",
+          "answer": "Großeltern"
+        },
+        {
+          "type": "choice",
+          "text": "___ Tante ist sehr hilfsbereit.",
+          "context": "Der, Die, Das, Den",
+          "answer": "Die"
+        },
+        {
+          "type": "choice",
+          "text": "Ich habe zwei ___.",
+          "context": "Bruder, Brüder, Brudern, Bruders",
+          "answer": "Brüder"
+        },
+        {
+          "type": "choice",
+          "text": "___ Kind spielt im Garten.",
+          "context": "Der, Die, Das, Den",
+          "answer": "Das"
+        },
+        {
+          "type": "choice",
+          "text": "Meine ___ bäckt leckere Kuchen.",
+          "context": "Oma, Opa, Onkel, Neffe",
+          "answer": "Oma"
+        },
+        {
+          "type": "choice",
+          "text": "___ Cousin wohnt in München.",
+          "context": "Der, Die, Das, Dem",
+          "answer": "Der"
+        },
+        {
+          "type": "choice",
+          "text": "Ich treffe meine ___ heute Abend.",
+          "context": "Freund, Freundin, Partner, Partnerin",
+          "answer": "Freundin"
+        }
+      ]
+    },
+    {
+      "name": "Articles + Plurals - Complete Practice",
+      "description": "Practice correct articles and plural forms for all family vocabulary. Critical for accurate German communication.",
+      "questions": [
+        {
+          "type": "fill-blank",
+          "text": "___ Vater, ___ Väter (article + plural)",
+          "answer": "der, die"
+        },
+        {
+          "type": "fill-blank",
+          "text": "___ Mutter, ___ Mütter (article + plural)",
+          "answer": "die, die"
+        },
+        {
+          "type": "fill-blank",
+          "text": "___ Bruder, ___ ___ (article + plural)",
+          "answer": "der, die Brüder"
+        },
+        {
+          "type": "fill-blank",
+          "text": "___ Schwester, ___ ___ (article + plural)",
+          "answer": "die, die Schwestern"
+        },
+        {
+          "type": "fill-blank",
+          "text": "___ Kind, ___ ___ (article + plural)",
+          "answer": "das, die Kinder"
+        },
+        {
+          "type": "fill-blank",
+          "text": "___ Großvater, ___ ___ (article + plural)",
+          "answer": "der, die Großväter"
+        },
+        {
+          "type": "fill-blank",
+          "text": "___ Onkel, ___ ___ (article + plural)",
+          "answer": "der, die Onkel"
+        },
+        {
+          "type": "fill-blank",
+          "text": "___ Tante, ___ ___ (article + plural)",
+          "answer": "die, die Tanten"
+        },
+        {
+          "type": "fill-blank",
+          "text": "___ Cousin, ___ ___ (article + plural)",
+          "answer": "der, die Cousins"
+        },
+        {
+          "type": "fill-blank",
+          "text": "___ Neffe, ___ ___ (article + plural)",
+          "answer": "der, die Neffen"
+        },
+        {
+          "type": "fill-blank",
+          "text": "___ Nichte, ___ ___ (article + plural)",
+          "answer": "die, die Nichten"
+        },
+        {
+          "type": "fill-blank",
+          "text": "___ Ehemann, ___ ___ (article + plural)",
+          "answer": "der, die Ehemänner"
+        }
+      ]
+    },
+    {
+      "name": "Dative Case with Family Members",
+      "description": "Master dative case using family vocabulary. Practice 'Ich helfe meiner/meinem...' pattern essential for telc B1.",
+      "questions": [
+        {
+          "type": "multi-blank",
+          "text": "Ich helfe ___ (meine Mutter) im Haushalt.",
+          "answer": ["meiner Mutter"]
+        },
+        {
+          "type": "multi-blank",
+          "text": "Sie dankt ___ (ihr Vater) für die Hilfe.",
+          "answer": ["ihrem Vater"]
+        },
+        {
+          "type": "multi-blank",
+          "text": "Wir helfen ___ (unsere Großeltern) im Garten.",
+          "answer": ["unseren Großeltern"]
+        },
+        {
+          "type": "multi-blank",
+          "text": "Er hilft ___ (sein Bruder) bei den Hausaufgaben.",
+          "answer": ["seinem Bruder"]
+        },
+        {
+          "type": "multi-blank",
+          "text": "Das Buch gefällt ___ (meine Schwester) sehr gut.",
+          "answer": ["meiner Schwester"]
+        },
+        {
+          "type": "multi-blank",
+          "text": "Ich schreibe ___ (meine Tante) einen Brief.",
+          "answer": ["meiner Tante"]
+        },
+        {
+          "type": "multi-blank",
+          "text": "Die Kinder helfen ___ (ihre Eltern) oft.",
+          "answer": ["ihren Eltern"]
+        },
+        {
+          "type": "multi-blank",
+          "text": "Er gibt ___ (sein Onkel) das Geschenk.",
+          "answer": ["seinem Onkel"]
+        },
+        {
+          "type": "multi-blank",
+          "text": "Ich danke ___ (meine Cousine) für den Rat.",
+          "answer": ["meiner Cousine"]
+        },
+        {
+          "type": "multi-blank",
+          "text": "Das gehört ___ (mein Neffe).",
+          "answer": ["meinem Neffen"]
+        }
+      ]
+    },
+    {
+      "name": "Adjectives for Describing People",
+      "description": "Learn 30 essential adjectives for describing personality and character. Match opposites and practice in context.",
+      "questions": [
+        {
+          "type": "match",
+          "text": "freundlich, geduldig, fleißig, ehrlich, optimistisch",
+          "context": "unfreundlich, ungeduldig, faul, unehrlich, pessimistisch",
+          "answer": ["freundlich-unfreundlich", "geduldig-ungeduldig", "fleißig-faul", "ehrlich-unehrlich", "optimistisch-pessimistisch"]
+        },
+        {
+          "type": "choice",
+          "text": "Meine Tante ist sehr ___. Sie hilft allen Nachbarn.",
+          "context": "hilfsbereit, faul, streng, egoistisch",
+          "answer": "hilfsbereit"
+        },
+        {
+          "type": "choice",
+          "text": "Mein Bruder ist ___. Er lernt jeden Tag viel.",
+          "context": "faul, fleißig, ungeduldig, pessimistisch",
+          "answer": "fleißig"
+        },
+        {
+          "type": "choice",
+          "text": "Mein Vater ist sehr ___. Er wartet immer ruhig.",
+          "context": "ungeduldig, streng, geduldig, faul",
+          "answer": "geduldig"
+        },
+        {
+          "type": "choice",
+          "text": "Meine Schwester ist ___. Sie macht alle lachen.",
+          "context": "lustig, streng, unfreundlich, pessimistisch",
+          "answer": "lustig"
+        },
+        {
+          "type": "fill-blank",
+          "text": "Meine Oma ist sehr ___ und ___. (zwei positive Adjektive)",
+          "answer": "nett, freundlich"
+        },
+        {
+          "type": "choice",
+          "text": "Mein Cousin ist ___. Er gibt immer viel.",
+          "context": "egoistisch, großzügig, faul, streng",
+          "answer": "großzügig"
+        },
+        {
+          "type": "choice",
+          "text": "Meine Freundin ist sehr ___. Man kann ihr vertrauen.",
+          "context": "unehrlich, zuverlässig, faul, ungeduldig",
+          "answer": "zuverlässig"
+        },
+        {
+          "type": "choice",
+          "text": "Mein Lehrer ist manchmal zu ___.",
+          "context": "freundlich, geduldig, streng, sympathisch",
+          "answer": "streng"
+        },
+        {
+          "type": "fill-blank",
+          "text": "Er ist sehr ___ und lernt schnell neue Dinge. (intelligent)",
+          "answer": "intelligent"
+        }
+      ]
+    },
+    {
+      "name": "Relationship Verbs in Action",
+      "description": "Practice separable and reflexive verbs related to relationships. Essential for telc Speaking and Writing tasks.",
+      "questions": [
+        {
+          "type": "transform",
+          "text": "kennenlernen (ich) >> Present tense, 1st person",
+          "answer": "ich lerne kennen"
+        },
+        {
+          "type": "transform",
+          "text": "sich treffen (wir) >> Present tense with 'mit meiner Familie'",
+          "answer": "wir treffen uns mit meiner Familie"
+        },
+        {
+          "type": "fill-blank",
+          "text": "Wann hast du deinen Mann ___? (kennenlernen, Perfekt)",
+          "answer": "kennengelernt"
+        },
+        {
+          "type": "fill-blank",
+          "text": "Ich ___ mich morgen mit meiner Freundin. (sich treffen)",
+          "answer": "treffe"
+        },
+        {
+          "type": "choice",
+          "text": "Er hat ___ in sie verliebt.",
+          "context": "sich, ihm, ihr, ihn",
+          "answer": "sich"
+        },
+        {
+          "type": "fill-blank",
+          "text": "Sie ___ im Juni. (heiraten, Präsens)",
+          "answer": "heiraten"
+        },
+        {
+          "type": "fill-blank",
+          "text": "Wir haben ___ letztes Jahr verlobt. (sich verloben, Perfekt)",
+          "answer": "uns"
+        },
+        {
+          "type": "choice",
+          "text": "Meine Schwester ___ sich von ihrem Freund getrennt.",
+          "context": "hat, ist, wird, hatte",
+          "answer": "hat"
+        },
+        {
+          "type": "fill-blank",
+          "text": "Ich ___ meine Familie sehr. (lieben)",
+          "answer": "liebe"
+        },
+        {
+          "type": "fill-blank",
+          "text": "Darf ich ___ vorstellen? Ich heiße Anna. (sich vorstellen)",
+          "answer": "mich"
+        }
+      ]
+    },
+    {
+      "name": "Family Conversations - telc Speaking Practice",
+      "description": "Practice natural conversations about family using dative case, adjectives, and relationship vocabulary. Perfect preparation for telc Sprechen Teil 2 and 3.",
+      "questions": [
+        {
+          "type": "conversation",
+          "text": "Two friends discussing their families at a café",
+          "context": "Lisa: Hast du {blank} Familie oft?|Max: Ja, ich treffe mich jeden {blank} mit {blank} Eltern.|Lisa: Das ist schön! Wie ist deine {blank}?|Max: Meine Mutter ist sehr {blank} und {blank}.",
+          "answer": ["deine", "Sonntag", "meinen", "Mutter", "freundlich", "geduldig"]
+        },
+        {
+          "type": "conversation",
+          "text": "Planning a family birthday party",
+          "context": "Anna: Wann wollen wir {blank} Geburtstagsparty für Oma machen?|Tom: Vielleicht am {blank}? Dann haben alle Zeit.|Anna: Gute Idee! Wen laden wir ein?|Tom: {blank} Familie und {blank} Freunde natürlich!",
+          "answer": ["die", "Samstag", "Die ganze", "ihre"]
+        },
+        {
+          "type": "conversation",
+          "text": "Discussing helping family members",
+          "context": "Sarah: Hilfst du {blank} Mutter oft im Haushalt?|Max: Ja, ich helfe {blank} jeden Tag. Und du?|Sarah: Ich helfe meinem {blank} bei den Hausaufgaben.|Max: Das ist toll! Dein Bruder ist sicher {blank}.",
+          "answer": ["deiner", "ihr", "Bruder", "dankbar"]
+        },
+        {
+          "type": "conversation",
+          "text": "Talking about family characteristics",
+          "context": "Peter: Ist dein Vater {blank}?|Julia: Ja, sehr! Er ist auch sehr {blank} und hilft allen.|Peter: Meine {blank} ist auch so. Sie ist immer {blank}.|Julia: Das ist wichtig in einer {blank}!",
+          "answer": ["freundlich", "hilfsbereit", "Mutter", "geduldig", "Familie"]
+        },
+        {
+          "type": "conversation",
+          "text": "Making plans to visit grandparents",
+          "context": "Maria: Wann besuchst du {blank} Großeltern?|Klaus: Am {blank}. Möchtest du mitkommen?|Maria: Gern! Ich mag {blank} Oma sehr. Sie ist so {blank}!|Klaus: Ja, und sie bäckt die {blank} Kuchen!",
+          "answer": ["deine", "Wochenende", "deine", "nett", "besten"]
+        }
+      ]
+    },
+    {
+      "name": "Describe Your Family - Speaking & Writing",
+      "description": "Practice describing family members using complete sentences. Preparation for telc Speaking Teil 1 and Writing Teil 1.",
+      "questions": [
+        {
+          "type": "writing",
+          "text": "Beschreiben Sie Ihren Vater oder Ihre Mutter. Schreiben Sie 4-5 Sätze. Verwenden Sie: Beruf, Alter, 3 Adjektive.",
+          "answer": "Mein Vater heißt Thomas und ist 55 Jahre alt. Er arbeitet als Ingenieur in Berlin. Mein Vater ist sehr intelligent, fleißig und geduldig. Er hilft mir oft bei technischen Problemen. Ich habe eine sehr gute Beziehung zu meinem Vater."
+        },
+        {
+          "type": "speaking",
+          "text": "Sprechen Sie über Ihre Geschwister oder Ihre besten Freunde. Beschreiben Sie: Wie viele? Namen? Charakter (3 Adjektive)? Was machen sie?",
+          "answer": "Ich habe zwei Brüder. Mein älterer Bruder heißt Michael. Er ist 28 Jahre alt und sehr zuverlässig, intelligent und freundlich. Er studiert Medizin in München. Mein jüngerer Bruder heißt Simon. Er ist 20 Jahre alt und sehr lustig, optimistisch und hilfsbereit. Er macht eine Ausbildung als Mechaniker."
+        },
+        {
+          "type": "writing",
+          "text": "Schreiben Sie eine E-Mail an einen Freund über Ihren letzten Familienbesuch. (80 Wörter) Schreiben Sie über: Wann? Wo? Mit wem? Was haben Sie gemacht? Wie war es?",
+          "answer": "Lieber Max,\n\nwie geht es dir? Ich war letztes Wochenende bei meinen Großeltern auf dem Land. Meine ganze Familie war da - meine Eltern, meine Schwester und mein Bruder. Wir haben zusammen gekocht und im Garten gearbeitet. Meine Oma hat einen leckeren Kuchen gebackt. Mein Opa hat uns interessante Geschichten erzählt. Es war ein sehr schönes Wochenende. Meine Familie ist mir sehr wichtig. Ich treffe mich gern mit ihnen.\n\nWann besuchst du deine Familie?\n\nViele Grüße,\nAnna"
+        },
+        {
+          "type": "speaking",
+          "text": "Präsentation: 'Familienleben heute' - Sprechen Sie 2 Minuten über Vor- und Nachteile von großen Familien. Verwenden Sie Adjektive und Beispiele.",
+          "answer": "Große Familien haben viele Vorteile. Erstens, man ist nie allein. Man hat immer jemanden, mit dem man sprechen kann. Zweitens, in großen Familien lernt man früh, hilfsbereit und geduldig zu sein. Man muss teilen und zusammenarbeiten. Drittens, bei Problemen gibt es immer Unterstützung. Aber es gibt auch Nachteile. Große Familien können manchmal zu laut sein. Man hat weniger Privatsphäre. Manchmal gibt es Konflikte, weil viele Menschen unterschiedliche Meinungen haben. Auch finanziell ist es schwieriger für die Eltern. Ich persönlich finde große Familien positiv. Meine Familie ist groß und wir helfen uns immer gegenseitig."
+        },
+        {
+          "type": "dialogue",
+          "context": "Sie lernen jemanden Neues kennen. Die Person fragt nach Ihrer Familie.",
+          "text": "Erzählen Sie mal, haben Sie Geschwister?",
+          "answer": "Ja, ich habe eine Schwester. Sie heißt Sarah und ist 25 Jahre alt. Meine Schwester ist sehr freundlich und hilfsbereit. Sie arbeitet als Lehrerin in Hamburg. Wir verstehen uns sehr gut und telefonieren oft. Sie hilft mir immer, wenn ich Probleme habe."
+        },
+        {
+          "type": "dialogue",
+          "context": "Ein Freund fragt Sie nach Ihrem Familienstand.",
+          "text": "Sind Sie verheiratet oder ledig?",
+          "answer": "Ich bin seit drei Jahren verheiratet. Mein Mann heißt Thomas. Wir haben uns vor fünf Jahren kennengelernt. Er ist sehr zuverlässig und lustig. Wir wohnen zusammen in Berlin und möchten bald Kinder haben."
+        }
+      ]
+    },
+    {
+      "name": "Comprehensive Family Vocabulary Review",
+      "description": "Mixed practice covering all family vocabulary, grammar, and skills. Final preparation for telc B1 exam.",
+      "questions": [
+        {
+          "type": "cloze",
+          "text": "Meine Familie ist sehr {blank}. Ich habe zwei {blank} und eine {blank}. Meine {blank} wohnen in Berlin. Ich besuche {blank} oft am Wochenende. Mein {blank} ist sehr freundlich und meine {blank} kocht sehr gut. Ich helfe {blank} Mutter oft im Haushalt.",
+          "answer": ["groß", "Brüder", "Schwester", "Eltern", "sie", "Vater", "Mutter", "meiner"]
+        },
+        {
+          "type": "error-correction",
+          "text": "Ich helfe die Mutter im Garten.",
+          "answer": "Ich helfe der Mutter im Garten."
+        },
+        {
+          "type": "error-correction",
+          "text": "Meine Großeltern ist sehr nett.",
+          "answer": "Meine Großeltern sind sehr nett."
+        },
+        {
+          "type": "error-correction",
+          "text": "Ich treffe mich mit mein Cousin morgen.",
+          "answer": "Ich treffe mich mit meinem Cousin morgen."
+        },
+        {
+          "type": "word-order",
+          "text": "oft / meinen / ich / Großvater / besuche",
+          "answer": "Ich besuche meinen Großvater oft."
+        },
+        {
+          "type": "word-order",
+          "text": "hilft / meiner / Schwester / bei / er / den Hausaufgaben",
+          "answer": "Er hilft meiner Schwester bei den Hausaufgaben."
+        },
+        {
+          "type": "choice",
+          "text": "Ich bin seit 2020 ___.",
+          "context": "ledig, verheiratet, Hochzeit, heiraten",
+          "answer": "verheiratet"
+        },
+        {
+          "type": "choice",
+          "text": "Meine Schwester hat ___ letztes Jahr verlobt.",
+          "context": "sich, ihr, sie, ihm",
+          "answer": "sich"
+        },
+        {
+          "type": "fill-blank",
+          "text": "Das Buch ___ meinem Neffen. (gehören)",
+          "answer": "gehört"
+        },
+        {
+          "type": "fill-blank",
+          "text": "Wir haben ___ vor drei Jahren kennengelernt. (sich/uns)",
+          "answer": "uns"
+        },
+        {
+          "type": "match",
+          "text": "der Vater, die Mutter, der Bruder, die Schwester",
+          "context": "die Väter, die Mütter, die Brüder, die Schwestern",
+          "answer": ["der Vater-die Väter", "die Mutter-die Mütter", "der Bruder-die Brüder", "die Schwester-die Schwestern"]
+        },
+        {
+          "type": "identify",
+          "text": "Ich bin verheiratet und habe zwei Kinder. Mein Mann ist sehr freundlich. Wir wohnen mit meinen Eltern zusammen. Meine Mutter hilft uns oft.",
+          "context": "Identify: Familienstand, Anzahl der Kinder, Charakter des Mannes, Wohnsituation",
+          "answer": "verheiratet | zwei Kinder | freundlich | mit Eltern zusammen"
+        },
+        {
+          "type": "reading",
+          "context": "Text: 'Familie Schmidt hat vier Kinder. Der Vater arbeitet als Lehrer. Die Mutter ist Ärztin. Sie wohnen in Hamburg.'",
+          "text": "Die Mutter arbeitet auch.",
+          "answer": "TRUE"
+        },
+        {
+          "type": "choice",
+          "text": "Nach der ___ leben sie getrennt.",
+          "context": "Hochzeit, Verlobung, Trennung, Scheidung",
+          "answer": "Scheidung"
+        },
+        {
+          "type": "transform",
+          "text": "das Kind >> Dativ Plural",
+          "answer": "den Kindern"
+        }
+      ]
+    }
+  ],
+  "vocabulary": [
+    {
+      "word": "Vater",
+      "forms": ["der Vater", "des Vaters", "dem Vater", "den Vater", "die Väter"],
+      "meaning": "father"
+    },
+    {
+      "word": "Mutter",
+      "forms": ["die Mutter", "der Mutter", "der Mutter", "die Mutter", "die Mütter"],
+      "meaning": "mother"
+    },
+    {
+      "word": "Eltern",
+      "forms": ["die Eltern", "der Eltern", "den Eltern", "die Eltern"],
+      "meaning": "parents"
+    },
+    {
+      "word": "Bruder",
+      "forms": ["der Bruder", "des Bruders", "dem Bruder", "den Bruder", "die Brüder"],
+      "meaning": "brother"
+    },
+    {
+      "word": "Schwester",
+      "forms": ["die Schwester", "der Schwester", "der Schwester", "die Schwester", "die Schwestern"],
+      "meaning": "sister"
+    },
+    {
+      "word": "Kind",
+      "forms": ["das Kind", "des Kindes", "dem Kind", "das Kind", "die Kinder"],
+      "meaning": "child"
+    },
+    {
+      "word": "Sohn",
+      "forms": ["der Sohn", "des Sohnes", "dem Sohn", "den Sohn", "die Söhne"],
+      "meaning": "son"
+    },
+    {
+      "word": "Tochter",
+      "forms": ["die Tochter", "der Tochter", "der Tochter", "die Tochter", "die Töchter"],
+      "meaning": "daughter"
+    },
+    {
+      "word": "Großvater",
+      "forms": ["der Großvater", "des Großvaters", "dem Großvater", "den Großvater", "die Großväter"],
+      "meaning": "grandfather"
+    },
+    {
+      "word": "Großmutter",
+      "forms": ["die Großmutter", "der Großmutter", "der Großmutter", "die Großmutter", "die Großmütter"],
+      "meaning": "grandmother"
+    },
+    {
+      "word": "Großeltern",
+      "forms": ["die Großeltern", "der Großeltern", "den Großeltern", "die Großeltern"],
+      "meaning": "grandparents"
+    },
+    {
+      "word": "Onkel",
+      "forms": ["der Onkel", "des Onkels", "dem Onkel", "den Onkel", "die Onkel"],
+      "meaning": "uncle"
+    },
+    {
+      "word": "Tante",
+      "forms": ["die Tante", "der Tante", "der Tante", "die Tante", "die Tanten"],
+      "meaning": "aunt"
+    },
+    {
+      "word": "Cousin",
+      "forms": ["der Cousin", "des Cousins", "dem Cousin", "den Cousin", "die Cousins"],
+      "meaning": "cousin (male)"
+    },
+    {
+      "word": "Cousine",
+      "forms": ["die Cousine", "der Cousine", "der Cousine", "die Cousine", "die Cousinen"],
+      "meaning": "cousin (female)"
+    },
+    {
+      "word": "Neffe",
+      "forms": ["der Neffe", "des Neffen", "dem Neffen", "den Neffen", "die Neffen"],
+      "meaning": "nephew"
+    },
+    {
+      "word": "Nichte",
+      "forms": ["die Nichte", "der Nichte", "der Nichte", "die Nichte", "die Nichten"],
+      "meaning": "niece"
+    },
+    {
+      "word": "Freund",
+      "forms": ["der Freund", "des Freundes", "dem Freund", "den Freund", "die Freunde"],
+      "meaning": "boyfriend, friend"
+    },
+    {
+      "word": "Freundin",
+      "forms": ["die Freundin", "der Freundin", "der Freundin", "die Freundin", "die Freundinnen"],
+      "meaning": "girlfriend, friend (female)"
+    },
+    {
+      "word": "Ehemann",
+      "forms": ["der Ehemann", "des Ehemannes", "dem Ehemann", "den Ehemann", "die Ehemänner"],
+      "meaning": "husband"
+    },
+    {
+      "word": "Ehefrau",
+      "forms": ["die Ehefrau", "der Ehefrau", "der Ehefrau", "die Ehefrau", "die Ehefrauen"],
+      "meaning": "wife"
+    },
+    {
+      "word": "helfen",
+      "forms": ["helfen", "hilft", "half", "geholfen", "ich helfe", "du hilfst", "er hilft"],
+      "meaning": "to help (+ dative)"
+    },
+    {
+      "word": "danken",
+      "forms": ["danken", "dankt", "dankte", "gedankt", "ich danke", "du dankst"],
+      "meaning": "to thank (+ dative)"
+    },
+    {
+      "word": "gefallen",
+      "forms": ["gefallen", "gefällt", "gefiel", "gefallen", "es gefällt mir"],
+      "meaning": "to please, to like (+ dative)"
+    },
+    {
+      "word": "gehören",
+      "forms": ["gehören", "gehört", "gehörte", "gehört", "das gehört mir"],
+      "meaning": "to belong to (+ dative)"
+    },
+    {
+      "word": "kennenlernen",
+      "forms": ["kennenlernen", "lernt kennen", "lernte kennen", "kennengelernt", "ich lerne kennen"],
+      "meaning": "to meet, to get to know (separable)"
+    },
+    {
+      "word": "treffen",
+      "forms": ["sich treffen", "trifft sich", "traf sich", "getroffen", "ich treffe mich"],
+      "meaning": "to meet (reflexive + mit + dative)"
+    },
+    {
+      "word": "heiraten",
+      "forms": ["heiraten", "heiratet", "heiratete", "geheiratet", "ich heirate"],
+      "meaning": "to marry"
+    },
+    {
+      "word": "lieben",
+      "forms": ["lieben", "liebt", "liebte", "geliebt", "ich liebe"],
+      "meaning": "to love"
+    },
+    {
+      "word": "freundlich",
+      "forms": ["freundlich", "freundlicher", "am freundlichsten", "ein freundlicher Mann", "eine freundliche Frau"],
+      "meaning": "friendly"
+    },
+    {
+      "word": "nett",
+      "forms": ["nett", "netter", "am nettesten", "ein netter Mensch"],
+      "meaning": "nice"
+    },
+    {
+      "word": "hilfsbereit",
+      "forms": ["hilfsbereit", "hilfsbereiter", "am hilfsbereitesten"],
+      "meaning": "helpful"
+    },
+    {
+      "word": "geduldig",
+      "forms": ["geduldig", "geduldiger", "am geduldigsten"],
+      "meaning": "patient"
+    },
+    {
+      "word": "fleißig",
+      "forms": ["fleißig", "fleißiger", "am fleißigsten"],
+      "meaning": "hardworking, diligent"
+    },
+    {
+      "word": "intelligent",
+      "forms": ["intelligent", "intelligenter", "am intelligentesten"],
+      "meaning": "intelligent"
+    },
+    {
+      "word": "zuverlässig",
+      "forms": ["zuverlässig", "zuverlässiger", "am zuverlässigsten"],
+      "meaning": "reliable"
+    },
+    {
+      "word": "lustig",
+      "forms": ["lustig", "lustiger", "am lustigsten"],
+      "meaning": "funny"
+    },
+    {
+      "word": "verheiratet",
+      "forms": ["verheiratet", "verheiratet sein", "ich bin verheiratet"],
+      "meaning": "married"
+    },
+    {
+      "word": "ledig",
+      "forms": ["ledig", "ledig sein", "ich bin ledig"],
+      "meaning": "single, unmarried"
+    },
+    {
+      "word": "Familie",
+      "forms": ["die Familie", "der Familie", "der Familie", "die Familie", "die Familien"],
+      "meaning": "family"
+    }
+  ]
+}

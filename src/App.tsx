@@ -4,6 +4,14 @@ import ReactMarkdown from 'react-markdown';
 import MatchQuestion from './components/MatchQuestion';
 import OrderQuestion from './components/OrderQuestion';
 import ClozeQuestion from './components/ClozeQuestion';
+import ConversationQuestion from './components/ConversationQuestion';
+// Import all default topics from /src/topics/ folder
+// To add more default topics, simply add JSON files to /src/topics/ and import them here
+import familyTopic from './topics/family.json';
+// Add more imports here as you add more topic files:
+// import workTopic from './topics/work.json';
+// import foodTopic from './topics/food.json';
+// etc.
 
 const STORAGE_KEY = 'german-practice-data';
 const APP_VERSION = '2.0.0'; // Increment this when making breaking changes
@@ -235,6 +243,59 @@ const getMasteryLabel = (level: string) => {
   };
   return labels[level as keyof typeof labels];
 };
+
+// ========== DEFAULT TOPICS MANAGEMENT ==========
+
+// Helper function to transform imported topic JSON to Topic interface
+const transformDefaultTopic = (topicData: any, topicId: string): Topic => {
+  return {
+    id: topicId,
+    title: topicData.topic.title,
+    description: topicData.topic.description,
+    createdAt: new Date('2024-01-01').toISOString(),
+    exercises: topicData.exercises.map((ex: any) => ({
+      id: ex.id || `ex-${topicId}-${Math.random()}`,
+      name: ex.name,
+      description: ex.description,
+      instructions: ex.instructions,
+      questions: ex.questions.map((q: any) => ({
+        id: q.id || `q-${topicId}-${Math.random()}`,
+        type: q.type,
+        text: q.text,
+        answer: q.answer,
+        context: q.context,
+        timesAnswered: 0,
+        timesCorrect: 0,
+        lastReviewed: null,
+        createdAt: new Date().toISOString()
+      }))
+    }))
+  };
+};
+
+// Helper function to transform default vocabulary
+const transformDefaultVocabulary = (vocabData: any[], topicId: string): VocabularyItem[] => {
+  return vocabData.map((vocab: any) => ({
+    id: vocab.id || `vocab-${topicId}-${Math.random()}`,
+    word: vocab.word || '',
+    forms: Array.isArray(vocab.forms) ? vocab.forms : [vocab.word || ''],
+    meaning: vocab.meaning || '',
+    topicId: topicId,
+    timesAnswered: 0,
+    timesCorrect: 0,
+    lastReviewed: null,
+    createdAt: new Date().toISOString()
+  }));
+};
+
+// List of all default topics to load
+// Add new topics to this array as you import them above
+const DEFAULT_TOPICS_CONFIG = [
+  { data: familyTopic, id: 'default-family-topic' },
+  // Add more here:
+  // { data: workTopic, id: 'default-work-topic' },
+  // { data: foodTopic, id: 'default-food-topic' },
+];
 
 // ========== EXERCISE PARSING FUNCTIONS ==========
 
@@ -471,6 +532,20 @@ function App() {
             }
           }
           
+          // Merge with default topics (always include them)
+          // Transform all default topics using helper function
+          const defaultTopics = DEFAULT_TOPICS_CONFIG.map(config => 
+            transformDefaultTopic(config.data, config.id)
+          );
+          
+          // Add default topics if they don't already exist (check by ID)
+          const loadedTopicIds = new Set(loadedTopics.map(t => t.id));
+          defaultTopics.forEach(defaultTopic => {
+            if (!loadedTopicIds.has(defaultTopic.id)) {
+              loadedTopics.unshift(defaultTopic); // Add at the beginning
+            }
+          });
+          
           // Handle vocabulary (safe check with validation)
           if (data.vocabulary && Array.isArray(data.vocabulary)) {
             loadedVocabulary = data.vocabulary.map((vocab: any) => {
@@ -487,6 +562,24 @@ function App() {
               };
             });
           }
+          
+          // Also merge vocabulary from all default topics (AFTER loading user vocabulary)
+          const loadedVocabWords = new Set(loadedVocabulary.map(v => v.word.toLowerCase()));
+          
+          DEFAULT_TOPICS_CONFIG.forEach(config => {
+            const topicData = config.data as any;
+            if (topicData.vocabulary && Array.isArray(topicData.vocabulary)) {
+              const defaultVocab = transformDefaultVocabulary(topicData.vocabulary, config.id);
+              
+              // Add default vocab if not already present (check by word)
+              defaultVocab.forEach((vocab: VocabularyItem) => {
+                if (!loadedVocabWords.has(vocab.word.toLowerCase())) {
+                  loadedVocabulary.push(vocab);
+                  loadedVocabWords.add(vocab.word.toLowerCase()); // Update set to avoid duplicates across topics
+                }
+              });
+            }
+          });
           
           // Set the validated data
           setTopics(loadedTopics);
@@ -520,8 +613,29 @@ function App() {
           }
         }
       } else {
-        // First time user, set version
+        // First time user, load all default topics
+        const defaultTopics = DEFAULT_TOPICS_CONFIG.map(config => 
+          transformDefaultTopic(config.data, config.id)
+        );
+        
+        setTopics(defaultTopics);
+        
+        // Also load all default vocabulary
+        const allDefaultVocab: VocabularyItem[] = [];
+        DEFAULT_TOPICS_CONFIG.forEach(config => {
+          const topicData = config.data as any;
+          if (topicData.vocabulary && Array.isArray(topicData.vocabulary)) {
+            const vocab = transformDefaultVocabulary(topicData.vocabulary, config.id);
+            allDefaultVocab.push(...vocab);
+          }
+        });
+        
+        setVocabulary(allDefaultVocab);
+        
+        // Set version
         localStorage.setItem(VERSION_KEY, APP_VERSION);
+        
+        console.log(`Loaded ${defaultTopics.length} default topics for first-time user`);
       }
     } catch (error) {
       console.error('Error accessing localStorage:', error);
@@ -583,6 +697,12 @@ function App() {
   };
 
   const deleteTopic = (topicId: string) => {
+    // Prevent deletion of default topics
+    if (topicId.startsWith('default-')) {
+      alert('Default topics cannot be deleted. They are provided as learning resources.');
+      return;
+    }
+    
     if (window.confirm('Are you sure you want to delete this topic and all its exercises?')) {
       setTopics(topics.filter(t => t.id !== topicId));
       if (selectedTopicId === topicId) {
@@ -1421,6 +1541,29 @@ function App() {
 
   // ========== VOCABULARY HIGHLIGHTING FUNCTIONS ==========
   
+  // Helper function to determine gender from vocabulary forms
+  const getVocabGender = (vocab: VocabularyItem): 'masculine' | 'feminine' | 'neuter' | 'none' => {
+    // Check the first form for article (most reliable)
+    const firstForm = vocab.forms[0]?.toLowerCase() || '';
+    
+    if (firstForm.startsWith('der ') || firstForm.startsWith('ein ')) {
+      return 'masculine';
+    } else if (firstForm.startsWith('die ') || firstForm.startsWith('eine ')) {
+      // Check if it's plural (die as plural article, not feminine)
+      const hasPlural = vocab.forms.some(f => 
+        f.toLowerCase().includes('die ') && 
+        (f.toLowerCase().includes('en') || f.toLowerCase().includes('er') || f.toLowerCase().includes('n'))
+      );
+      // If all forms start with "die", it's likely feminine, not just plural
+      const allDie = vocab.forms.filter(f => f.toLowerCase().startsWith('die ')).length > 1;
+      return allDie && !hasPlural ? 'feminine' : 'feminine';
+    } else if (firstForm.startsWith('das ')) {
+      return 'neuter';
+    }
+    
+    return 'none'; // Verbs, adjectives, etc.
+  };
+
   const highlightVocabulary = (text: string, onWordClick: (vocab: VocabularyItem) => void) => {
     if (!text || vocabulary.length === 0) {
       return <span>{text}</span>;
@@ -1452,12 +1595,29 @@ function App() {
           const vocab = formToVocab.get(normalizedToken);
           
           if (vocab) {
+            const gender = getVocabGender(vocab);
+            
+            // Color-coding system: Blue=Masculine, Red=Feminine, Green=Neuter, Yellow=Other
+            const colorClasses = {
+              masculine: 'decoration-blue-500 bg-blue-50 hover:bg-blue-100 border-b-2 border-blue-500',
+              feminine: 'decoration-pink-500 bg-pink-50 hover:bg-pink-100 border-b-2 border-pink-500',
+              neuter: 'decoration-green-500 bg-green-50 hover:bg-green-100 border-b-2 border-green-500',
+              none: 'decoration-yellow-400 bg-yellow-50 hover:bg-yellow-100 border-b-2 border-yellow-400'
+            };
+            
+            const genderLabels = {
+              masculine: 'der (masculine)',
+              feminine: 'die (feminine)',
+              neuter: 'das (neuter)',
+              none: ''
+            };
+            
             return (
               <span
                 key={idx}
                 onClick={() => onWordClick(vocab)}
-                className="underline decoration-2 decoration-yellow-400 bg-yellow-50 cursor-pointer hover:bg-yellow-100 transition-colors rounded px-0.5"
-                title={`Click to see meaning: ${vocab.meaning}`}
+                className={`cursor-pointer transition-colors rounded px-1 font-medium ${colorClasses[gender]}`}
+                title={`${genderLabels[gender]} - ${vocab.meaning}\n(Click for details)`}
               >
                 {token}
               </span>
@@ -2059,30 +2219,49 @@ function App() {
                       ) : (
                         <>
                           <div className="flex items-start justify-between mb-2">
-                            <button
-                              onClick={() => {
-                                setSelectedTopicId(topic.id);
-                                setSelectedExerciseId(null);
-                                setView('list');
-                                setMobileView('exercises'); // Auto-navigate on mobile
-                              }}
-                              className="flex-1 text-left font-semibold text-gray-800 text-sm hover:text-indigo-600"
-                            >
-                              {topic.title}
-                            </button>
+                            <div className="flex-1 flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedTopicId(topic.id);
+                                  setSelectedExerciseId(null);
+                                  setView('list');
+                                  setMobileView('exercises'); // Auto-navigate on mobile
+                                }}
+                                className="flex-1 text-left font-semibold text-gray-800 text-sm hover:text-indigo-600"
+                              >
+                                {topic.title}
+                              </button>
+                              {topic.id.startsWith('default-') && (
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
+                                  Default
+                                </span>
+                              )}
+                            </div>
                             <div className="flex gap-1 ml-2">
                               <button
                                 onClick={() => startEditTopic(topic)}
                                 className="text-gray-500 hover:text-indigo-600"
+                                title="Edit topic"
                               >
                                 <Edit2 className="w-3 h-3" />
                               </button>
-                              <button
-                                onClick={() => deleteTopic(topic.id)}
-                                className="text-gray-500 hover:text-red-600"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
+                              {topic.id.startsWith('default-') ? (
+                                <button
+                                  disabled
+                                  className="text-gray-300 cursor-not-allowed"
+                                  title="Default topics cannot be deleted"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => deleteTopic(topic.id)}
+                                  className="text-gray-500 hover:text-red-600"
+                                  title="Delete topic"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )}
                             </div>
                           </div>
                           <div className="text-xs text-gray-600">
@@ -2411,6 +2590,20 @@ function App() {
             {/* Flashcard Practice View - Show independently of selected exercise */}
             {flashcardView === 'practice' && flashcardPool.length > 0 ? (
               <div className="bg-white rounded-lg shadow-lg p-6">
+                {/* Personal Story Method Tip */}
+                <div className="mb-4 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-500 rounded-lg">
+                  <h4 className="text-sm font-bold text-amber-900 mb-2 flex items-center">
+                    📖 Learning Tip: Personal Story Method
+                  </h4>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    <strong>Pro Tip:</strong> After this practice session, create ONE story using all the vocabulary you're learning. 
+                    For example: "<em>Meine Familie ist groß. Ich habe zwei Brüder und eine Schwester. Meine Eltern sind verheiratet seit 30 Jahren...</em>"
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1 font-medium">
+                    ✨ Why it works: Context + emotion = stronger memory!
+                  </p>
+                </div>
+
                 {/* Header with enhanced progress */}
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-3">
@@ -2979,6 +3172,34 @@ function App() {
                 {/* Practice View */}
                 {view === 'practice' && currentQuestion && selectedExercise && (
                   <div className="bg-white rounded-lg shadow-lg p-8">
+                    {/* Color-Coding Legend */}
+                    <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg">
+                      <h4 className="text-sm font-bold text-purple-900 mb-3 flex items-center">
+                        🎨 Gender Color-Coding System
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                        <div className="flex items-center gap-1">
+                          <span className="px-2 py-1 bg-blue-50 border-b-2 border-blue-500 text-blue-900 font-semibold rounded">der</span>
+                          <span className="text-gray-700">Masculine</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="px-2 py-1 bg-pink-50 border-b-2 border-pink-500 text-pink-900 font-semibold rounded">die</span>
+                          <span className="text-gray-700">Feminine</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="px-2 py-1 bg-green-50 border-b-2 border-green-500 text-green-900 font-semibold rounded">das</span>
+                          <span className="text-gray-700">Neuter</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="px-2 py-1 bg-yellow-50 border-b-2 border-yellow-400 text-yellow-900 font-semibold rounded">verb</span>
+                          <span className="text-gray-700">Verbs/Other</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-purple-700 mt-2 italic">
+                        💡 Tip: Click any highlighted word to see its meaning and all forms!
+                      </p>
+                    </div>
+
                     {/* Exercise Description (if exists) - Shown at the very top */}
                     {selectedExercise.description && (
                       <div className="mb-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-l-4 border-indigo-500 rounded-lg shadow-sm">
@@ -3460,7 +3681,7 @@ function App() {
                             </p>
                           </div>
                           <div className="space-y-3">
-                            {currentQuestion.context.split(/, (?=\d|[A-Z]|No|Yes)/).map((option, idx) => {
+                            {currentQuestion.context.split(',').map((option, idx) => {
                               const optionText = option.trim();
                               const isSelected = userAnswer === optionText;
                               const isDisabled = feedback !== null;
@@ -3710,10 +3931,9 @@ function App() {
                         </div>
                       )}
 
-                      {/* Interactive Conversation Type */}
-                      {currentQuestion.type === 'conversation' && currentQuestion.context && (() => {
+                      {/* Interactive Conversation Type - WITH INLINE BLANKS */}
+                      {currentQuestion.type === 'conversation' && currentQuestion.context && !feedback && (() => {
                         // Parse conversation turns from context
-                        // Format: "Speaker: Text with {blank}|Speaker2: Reply with {blank}|..."
                         const turns = currentQuestion.context.split('|').map(turn => {
                           const [speaker, ...textParts] = turn.split(':');
                           return {
@@ -3722,45 +3942,20 @@ function App() {
                           };
                         });
                         
-                        const currentTurn = turns[conversationTurnIndex];
-                        const isLastTurn = conversationTurnIndex >= turns.length - 1;
-                        
-                        // Parse blanks in current turn
-                        const blanks = currentTurn.text.match(/\{blank\}/g) || [];
-                        const numBlanks = blanks.length;
-                        
-                        // Get correct answers for validation
                         const correctAnswers = Array.isArray(currentQuestion.answer) 
                           ? currentQuestion.answer 
                           : [currentQuestion.answer];
                         
-                        // Check if a turn's answer is correct (for immediate feedback)
-                        const checkTurnAnswer = (answer: string, turnIdx?: number) => {
-                          const idx = turnIdx !== undefined ? turnIdx : conversationTurnIndex;
-                          const correctAns = correctAnswers[idx] || '';
-                          const userAns = answer.trim().toLowerCase();
-                          const correct = correctAns.toLowerCase();
-                          
-                          // Handle multiple blanks per turn (comma-separated)
-                          if (userAns.includes(',') || correct.includes(',')) {
-                            const userParts = userAns.split(',').map(p => p.trim());
-                            const correctParts = correct.split(',').map(p => p.trim());
-                            return userParts.every((up, i) => up === correctParts[i]);
-                          }
-                          
-                          return userAns === correct;
-                        };
-                        
-                        const handleConversationSubmit = () => {
-                          if (!userAnswer.trim()) return;
-                          
-                          // Save the answer for this turn
-                          const newAnswers = [...conversationAnswers, userAnswer];
+                        const handleConversationTurnSubmit = (answers: string[]) => {
+                          // Join multiple answers with comma for storage (to keep compatibility)
+                          const answerString = answers.join(', ');
+                          const newAnswers = [...conversationAnswers, answerString];
                           setConversationAnswers(newAnswers);
+                          
+                          const isLastTurn = conversationTurnIndex >= turns.length - 1;
                           
                           if (isLastTurn) {
                             // Last turn - check all answers and finalize
-                            // Check if all answers match
                             const allCorrect = newAnswers.every((ans, idx) => {
                               const correctAns = correctAnswers[idx] || '';
                               const userAns = ans.trim().toLowerCase();
@@ -3817,192 +4012,90 @@ function App() {
                           } else {
                             // Move to next turn
                             setConversationTurnIndex(conversationTurnIndex + 1);
-                            setUserAnswer('');
                           }
                         };
                         
                         return (
-                          <div>
-                            {/* Scenario Description - NEW! */}
-                            {currentQuestion.text && (
-                              <div className="bg-gradient-to-r from-purple-100 to-blue-100 border-2 border-purple-400 rounded-xl p-5 mb-6 shadow-sm">
-                                <div className="flex items-start gap-3">
-                                  <span className="text-2xl">🎭</span>
-                                  <div className="flex-1">
-                                    <h4 className="text-sm font-bold text-purple-900 mb-2">SCENARIO</h4>
-                                    <p className="text-base text-purple-800 leading-relaxed">
-                                      {currentQuestion.text}
-                                    </p>
+                          <ConversationQuestion
+                            turns={turns}
+                            currentTurnIndex={conversationTurnIndex}
+                            previousAnswers={conversationAnswers}
+                            correctAnswers={correctAnswers}
+                            onSubmitTurn={handleConversationTurnSubmit}
+                            disabled={false}
+                            highlightVocabulary={highlightVocabulary}
+                            handleWordClick={handleWordClick}
+                            scenarioText={currentQuestion.text}
+                          />
+                        );
+                      })()}
+                      
+                      {/* Show all conversation when feedback is displayed */}
+                      {currentQuestion.type === 'conversation' && currentQuestion.context && feedback && (() => {
+                        const turns = currentQuestion.context.split('|').map(turn => {
+                          const [speaker, ...textParts] = turn.split(':');
+                          return {
+                            speaker: speaker.trim(),
+                            text: textParts.join(':').trim()
+                          };
+                        });
+                        
+                        const correctAnswers = Array.isArray(currentQuestion.answer) 
+                          ? currentQuestion.answer 
+                          : [currentQuestion.answer];
+                        
+                        return (
+                          <div className="space-y-3 mb-6">
+                            {turns.map((turn, idx) => {
+                              const userAns = conversationAnswers[idx] || '';
+                              const correctAns = correctAnswers[idx] || '';
+                              const turnParts = turn.text.split(/\{blank\}/);
+                              
+                              // Split stored answers (comma-separated if multiple)
+                              const userAnsParts = userAns.includes(',') 
+                                ? userAns.split(',').map(p => p.trim())
+                                : [userAns.trim()];
+                              
+                              const correctAnsParts = correctAns.includes(',')
+                                ? correctAns.split(',').map(p => p.trim())
+                                : [correctAns.trim()];
+                              
+                              return (
+                                <div 
+                                  key={idx} 
+                                  className={`p-4 rounded-lg ${
+                                    idx % 2 === 0 
+                                      ? 'bg-blue-100 border-l-4 border-blue-500 ml-0 mr-8' 
+                                      : 'bg-green-100 border-r-4 border-green-500 ml-8 mr-0'
+                                  }`}
+                                >
+                                  <div className="font-semibold text-sm text-gray-700 mb-1">
+                                    {turn.speaker}
                                   </div>
-                                </div>
-                              </div>
-                            )}
-                            
-                            <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-300 rounded-lg p-4 mb-6">
-                              <p className="text-sm text-purple-800">
-                                <strong>🗨️ Interactive Conversation:</strong> Fill in the blanks to continue the conversation. 
-                                <span className="ml-2 text-purple-600 font-semibold">
-                                  Turn {conversationTurnIndex + 1} of {turns.length}
-                                </span>
-                              </p>
-                            </div>
-                            
-                            {/* Previous conversation turns - WITH IMMEDIATE FEEDBACK */}
-                            {conversationTurnIndex > 0 && (
-                              <div className="mb-6 space-y-3">
-                                <h4 className="text-sm font-semibold text-gray-600 mb-3">Previous messages:</h4>
-                                {turns.slice(0, conversationTurnIndex).map((turn, idx) => {
-                                  // Check if this turn was answered correctly
-                                  const userAns = conversationAnswers[idx] || '';
-                                  const correctAns = correctAnswers[idx] || '';
-                                  const wasCorrect = checkTurnAnswer(userAns, idx);
-                                  
-                                  return (
-                                    <div 
-                                      key={idx} 
-                                      className={`p-4 rounded-lg border-l-4 ${
-                                        idx % 2 === 0 
-                                          ? wasCorrect
-                                            ? 'bg-green-50 border-green-500 ml-0 mr-8'
-                                            : 'bg-red-50 border-red-500 ml-0 mr-8'
-                                          : wasCorrect
-                                            ? 'bg-green-50 border-green-500 ml-8 mr-0'
-                                            : 'bg-red-50 border-red-500 ml-8 mr-0'
-                                      }`}
-                                    >
-                                      <div className="flex items-center justify-between mb-1">
-                                        <div className="font-semibold text-sm text-gray-700">
-                                          {turn.speaker}
-                                        </div>
-                                        {wasCorrect ? (
-                                          <span className="text-xs font-bold text-green-700 bg-green-200 px-2 py-1 rounded">✓ Correct</span>
-                                        ) : (
-                                          <span className="text-xs font-bold text-red-700 bg-red-200 px-2 py-1 rounded">✗ Incorrect</span>
+                                  <div className="text-gray-900">
+                                    {turnParts.map((part, i) => (
+                                      <span key={i}>
+                                        {highlightVocabulary(part, handleWordClick)}
+                                        {i < turnParts.length - 1 && (
+                                          <span className={`inline-block mx-1 px-3 py-1 border-2 rounded font-semibold ${
+                                            userAnsParts[i]?.toLowerCase() === correctAnsParts[i]?.toLowerCase()
+                                              ? 'bg-green-100 border-green-500 text-green-800'
+                                              : 'bg-red-100 border-red-500 text-red-800'
+                                          }`}>
+                                            {userAnsParts[i] || '___'}
+                                            {userAnsParts[i]?.toLowerCase() !== correctAnsParts[i]?.toLowerCase() && (
+                                              <span className="text-green-700 ml-2">
+                                                (→ {correctAnsParts[i]})
+                                              </span>
+                                            )}
+                                          </span>
                                         )}
-                                      </div>
-                                      <div className="text-gray-900">
-                                        {turn.text.split('{blank}').map((part, i, arr) => (
-                                          <span key={i}>
-                                            {highlightVocabulary(part, handleWordClick)}
-                                            {i < arr.length - 1 && (
-                                              <span className={`inline-block mx-1 px-3 py-1 border-2 rounded font-semibold ${
-                                                userAns.split(',')[i]?.trim().toLowerCase() === correctAns.split(',')[i]?.trim().toLowerCase()
-                                                  ? 'bg-green-100 border-green-500 text-green-800'
-                                                  : 'bg-red-100 border-red-500 text-red-800'
-                                              }`}>
-                                                {userAns.split(',')[i]?.trim() || '___'}
-                                                {!wasCorrect && (
-                                                  <span className="text-green-700 text-sm ml-2">
-                                                    (→ {correctAns.split(',')[i]?.trim()})
-                                                  </span>
-                                                )}
-                                              </span>
-                                            )}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                            
-                            {/* Current turn - Simplified without nested hooks */}
-                            {!feedback && (
-                              <div 
-                                className={`p-5 rounded-lg border-2 mb-6 ${
-                                  conversationTurnIndex % 2 === 0 
-                                    ? 'bg-blue-50 border-blue-400 ml-0 mr-8' 
-                                    : 'bg-green-50 border-green-400 ml-8 mr-0'
-                                }`}
-                              >
-                                <div className="font-bold text-lg text-gray-800 mb-3">
-                                  {currentTurn.speaker}
-                                </div>
-                                <div className="text-lg text-gray-900 mb-4 leading-relaxed">
-                                  {highlightVocabulary(currentTurn.text.replace(/\{blank\}/g, '____'), handleWordClick)}
-                                </div>
-                                
-                                <div>
-                                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    {numBlanks > 1 
-                                      ? `Fill in the ${numBlanks} blanks (comma-separated):` 
-                                      : 'Fill in the blank:'}
-                                  </label>
-                                  <div className="flex gap-2">
-                                    <input
-                                      type="text"
-                                      value={userAnswer}
-                                      onChange={(e) => setUserAnswer(e.target.value)}
-                                      onKeyPress={(e) => e.key === 'Enter' && userAnswer.trim() && handleConversationSubmit()}
-                                      placeholder={numBlanks > 1 ? "word1, word2, word3..." : "Type your answer..."}
-                                      className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg text-lg focus:border-indigo-500 focus:outline-none bg-white text-gray-900"
-                                      autoFocus
-                                    />
-                                    <button
-                                      onClick={handleConversationSubmit}
-                                      disabled={!userAnswer.trim()}
-                                      className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-                                        userAnswer.trim()
-                                          ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                      }`}
-                                    >
-                                      {isLastTurn ? 'Finish ✓' : 'Next Turn →'}
-                                    </button>
+                                      </span>
+                                    ))}
                                   </div>
                                 </div>
-                              </div>
-                            )}
-                            
-                            {/* Show all conversation when feedback is displayed */}
-                            {feedback && (
-                              <div className="space-y-3 mb-6">
-                                {turns.map((turn, idx) => {
-                                  const correctAnswers = Array.isArray(currentQuestion.answer) 
-                                    ? currentQuestion.answer 
-                                    : [currentQuestion.answer];
-                                  const userAns = conversationAnswers[idx] || '';
-                                  const correctAns = correctAnswers[idx] || '';
-                                  
-                                  return (
-                                    <div 
-                                      key={idx} 
-                                      className={`p-4 rounded-lg ${
-                                        idx % 2 === 0 
-                                          ? 'bg-blue-100 border-l-4 border-blue-500 ml-0 mr-8' 
-                                          : 'bg-green-100 border-r-4 border-green-500 ml-8 mr-0'
-                                      }`}
-                                    >
-                                      <div className="font-semibold text-sm text-gray-700 mb-1">
-                                        {turn.speaker}
-                                      </div>
-                                      <div className="text-gray-900">
-                                        {turn.text.split('{blank}').map((part, i, arr) => (
-                                          <span key={i}>
-                                            {highlightVocabulary(part, handleWordClick)}
-                                            {i < arr.length - 1 && (
-                                              <span className={`inline-block mx-1 px-3 py-1 border-2 rounded font-semibold ${
-                                                userAns.split(',')[i]?.trim().toLowerCase() === correctAns.split(',')[i]?.trim().toLowerCase()
-                                                  ? 'bg-green-100 border-green-500 text-green-800'
-                                                  : 'bg-red-100 border-red-500 text-red-800'
-                                              }`}>
-                                                {userAns.split(',')[i]?.trim() || '___'}
-                                                {userAns.split(',')[i]?.trim().toLowerCase() !== correctAns.split(',')[i]?.trim().toLowerCase() && (
-                                                  <span className="text-green-700 ml-2">
-                                                    (→ {correctAns.split(',')[i]?.trim()})
-                                                  </span>
-                                                )}
-                                              </span>
-                                            )}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
+                              );
+                            })}
                           </div>
                         );
                       })()}
